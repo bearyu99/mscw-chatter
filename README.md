@@ -93,9 +93,11 @@ npm run dist:mac
 npm run package:mac
 ```
 
-결과는 `release/`에 생성됩니다. Windows 10은 **64비트**를 대상으로 합니다. 32비트 Windows는 지원하지 않습니다. macOS 패키지의 최소 시스템 버전은 13.0으로 설정했습니다. 운영체제별 빌드와 실제 기기 호환성 테스트는 서로 다른 검증입니다.
+결과는 `release/`에 생성됩니다. 화면에 표시하는 프로그램 이름은 **글클메 채팅 번역기**이며, 실행 파일과 macOS 번들의 파일명은 `mscw-chatter`로 고정합니다. 패키지 실행 검증에서 한글 실행 파일 이름을 사용할 때 macOS 시작 오류가 재현되어 영문 파일명을 사용합니다. Windows 시작 메뉴·바로가기와 macOS 표시 이름은 한국어를 사용합니다.
 
-`.github/workflows/build.yml`은 main push 또는 수동 실행 시 Windows/macOS에서 테스트·패키징하고 설치 파일을 Actions 산출물로 보관합니다. 기본 워크플로는 공개 배포용 서명·공증을 하지 않습니다. 서명되지 않은 앱에는 운영체제 경고가 나타날 수 있습니다. 공개 배포에는 Windows 코드 서명과 macOS 서명·공증을 별도로 구성하세요.
+Windows 10은 **64비트**를 대상으로 합니다. 32비트 Windows는 지원하지 않습니다. macOS 패키지의 최소 시스템 버전은 13.0으로 설정했습니다. 운영체제별 빌드와 실제 기기 호환성 테스트는 서로 다른 검증입니다.
+
+`.github/workflows/build.yml`은 main push 또는 수동 실행 시 Windows/macOS에서 단위 테스트·패키징·패키지 실행과 모의 서버 클립보드 통합 테스트를 수행하고 설치 파일을 Actions 산출물로 보관합니다. macOS 앱은 외부 인증서가 필요 없는 개발용 ad-hoc 서명을 적용합니다. Developer ID 서명·공증은 하지 않습니다. Windows도 공개 배포용 코드 서명을 하지 않습니다. 공개 배포에는 Windows 코드 서명과 macOS Developer ID 서명·공증을 별도로 구성하세요. macOS는 빌드 설정의 `mac.identity`를 배포용 인증서 이름으로 교체할 수 있습니다.
 
 ## 검증
 

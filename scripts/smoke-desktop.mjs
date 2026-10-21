@@ -31,7 +31,8 @@ let clipboardSaved = false;
 const checks = [];
 const check = (name, value) => { assert.ok(value, name); checks.push(name); };
 try {
-  desktop = await electron.launch({ args: [resolve('.')], cwd: resolve('.'), env, timeout: 20000 });
+  const executablePath = process.env.MSCW_TEST_EXECUTABLE;
+  desktop = await electron.launch({ ...(executablePath ? { executablePath, args: [] } : { args: [resolve('.')] }), cwd: resolve('.'), env, timeout: 20000 });
   const page = await desktop.firstWindow();
   await page.waitForFunction(() => !!window.mscw);
   await desktop.evaluate(async ({ clipboard, ClipboardItem }) => {
@@ -99,7 +100,7 @@ try {
   const config = await readFile(join(directory, 'configuration.json'), 'utf8');
   check('chat and translated text are absent from persisted settings', !config.includes('HS pls') && !config.includes('홀심 부탁해요') && !config.includes('WTB WG'));
   await mkdir('artifacts', { recursive: true });
-  await writeFile('artifacts/desktop-test-results.json', JSON.stringify({ testedAt: new Date().toISOString(), platform: process.platform, arch: process.arch, ai: 'isolated loopback fixture, no live AI', checks }, null, 2));
+  await writeFile('artifacts/desktop-test-results.json', JSON.stringify({ testedAt: new Date().toISOString(), platform: process.platform, arch: process.arch, packaged: !!executablePath, ai: 'isolated loopback fixture, no live AI', checks }, null, 2));
   console.log(`PASS: ${checks.length} native integration checks (${process.platform}/${process.arch}; loopback AI fixture)`);
 } finally {
   if (desktop) {

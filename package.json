@@ -38,11 +38,12 @@
     "esbuild": "^0.28.0",
     "typescript": "^5.9.0",
     "vite": "8.3.5",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "yazl": "^3.3.1"
   },
   "build": {
     "appId": "com.mscw.chatter",
-    "productName": "글클메 채팅 번역기",
+    "productName": "mscw-chatter",
     "artifactName": "mscw-chatter-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
@@ -65,8 +66,10 @@
       "icon": "build/icon.png",
       "hardenedRuntime": true,
       "extendInfo": {
-        "LSMinimumSystemVersion": "13.0"
-      }
+        "LSMinimumSystemVersion": "13.0",
+        "CFBundleDisplayName": "글클메 채팅 번역기"
+      },
+      "identity": "-"
     },
     "win": {
       "target": [
@@ -78,7 +81,9 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "shortcutName": "글클메 채팅 번역기",
+      "uninstallDisplayName": "글클메 채팅 번역기"
     },
     "publish": null
   }

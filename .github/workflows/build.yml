@@ -24,6 +24,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run ${{ matrix.script }} -- --publish never
+      - name: Test packaged macOS app
+        if: runner.os == 'macOS'
+        env:
+          MSCW_TEST_EXECUTABLE: ${{ github.workspace }}/release/mac-universal/mscw-chatter.app/Contents/MacOS/mscw-chatter
+        run: npm run test:desktop
+      - name: Test packaged Windows app
+        if: runner.os == 'Windows'
+        env:
+          MSCW_TEST_EXECUTABLE: ${{ github.workspace }}/release/win-unpacked/mscw-chatter.exe
+        run: npm run test:desktop
       - uses: actions/upload-artifact@v4
         with:
           name: mscw-chatter-${{ runner.os }}
