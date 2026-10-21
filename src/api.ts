@@ -7,7 +7,7 @@ let preview: Snapshot = {
   settings: structuredClone(DEFAULT_SETTINGS), runtime: emptyRuntime(),
   keys: { openai: false, anthropic: false, google: false, local: false },
   platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32',
-  version: '0.1.0', shortcutAvailable: false, native: false, storageWarning: null,
+  version: '0.2.0', shortcutAvailable: false, native: false, storageWarning: null,
 };
 const subscribers = new Set<(snapshot: Snapshot) => void>();
 const publish = () => { for (const cb of subscribers) cb(structuredClone(preview)); return structuredClone(preview); };
