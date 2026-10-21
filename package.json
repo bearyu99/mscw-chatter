@@ -1,0 +1,85 @@
+{
+  "name": "mscw-chatter",
+  "productName": "글클메 채팅 번역기",
+  "version": "0.1.0",
+  "private": true,
+  "description": "글로벌 클래식 메이플을 위한 한국어·영어 클립보드 번역기",
+  "author": "mscw-chatter",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/build-electron.mjs",
+    "start": "electron .",
+    "test": "vitest run",
+    "test:desktop": "node scripts/smoke-desktop.mjs",
+    "check": "tsc --noEmit",
+    "dist:mac": "npm run build && electron-builder --mac --universal",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "package:mac": "npm run build && electron-builder --mac --dir",
+    "package:source": "node scripts/package-source.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pretendard": "1.3.9",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.0",
+    "vite": "8.3.5",
+    "vitest": "^4.0.0"
+  },
+  "build": {
+    "appId": "com.mscw.chatter",
+    "productName": "글클메 채팅 번역기",
+    "artifactName": "mscw-chatter-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/icon.png",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "LSMinimumSystemVersion": "13.0"
+      }
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "publish": null
+  }
+}

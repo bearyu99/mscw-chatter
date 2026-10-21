@@ -1,0 +1,76 @@
+// Factual abbreviation mappings referenced from the user-supplied DCInside glossary.
+// The article's prose is not bundled. A term's presence does not imply game availability.
+export interface GlossaryTerm { en: string; ko: string; category: '거래' | '파티' | '사냥' | '아이템' | '스킬' | '일상'; aliases?: string[] }
+export const GLOSSARY: GlossaryTerm[] = [
+  { en: 'WTB', ko: '삽니다', category: '거래', aliases: ['B>', '구매'] },
+  { en: 'WTS', ko: '팝니다', category: '거래', aliases: ['S>', '판매'] },
+  { en: 'WTT', ko: '교환합니다', category: '거래', aliases: ['T>', '교환'] },
+  { en: 'A/W', ko: '즉구가', category: '거래', aliases: ['AW', '즉시 낙찰가'] },
+  { en: 'S/B', ko: '시작 입찰가', category: '거래', aliases: ['SB'] },
+  { en: 'C/O', ko: '현재 최고 제안가', category: '거래', aliases: ['CO'] },
+  { en: 'L/O', ko: '가격 제안 남겨줘', category: '거래', aliases: ['LO', '선제시'] },
+  { en: 'PC', ko: '시세 확인', category: '거래', aliases: ['P/C', '시세'] },
+  { en: 'ea', ko: '개당', category: '거래' },
+  { en: 'Nego', ko: '가격 협상 가능', category: '거래', aliases: ['네고'] },
+  { en: 'Firm', ko: '가격 고정', category: '거래' },
+  { en: 'IGN', ko: '게임 닉네임', category: '거래', aliases: ['닉네임'] },
+  { en: 'FM', ko: '자유시장', category: '거래', aliases: ['자시'] },
+  { en: 'Whisper', ko: '귓속말', category: '거래', aliases: ['whisp', '귓'] },
+  { en: 'k', ko: '천 메소', category: '거래' },
+  { en: 'm', ko: '백만 메소', category: '거래' },
+  { en: 'b', ko: '십억 메소', category: '거래', aliases: ['bil'] },
+  { en: 'LF', ko: '구함', category: '파티', aliases: ['L>', '구해요'] },
+  { en: 'R>', ko: '파티원 모집', category: '파티', aliases: ['모집'] },
+  { en: 'J>', ko: '파티 참여', category: '파티', aliases: ['파티 구함', '파티괌'] },
+  { en: 'LFG', ko: '들어갈 파티 구함', category: '파티' },
+  { en: 'LFM', ko: '파티원 추가 모집', category: '파티' },
+  { en: 'PT', ko: '파티', category: '파티' },
+  { en: 'Inv', ko: '초대', category: '파티', aliases: ['초대좀'] },
+  { en: 'PQ', ko: '파티퀘스트', category: '파티', aliases: ['파퀘'] },
+  { en: 'KPQ', ko: '커닝시티 파티퀘스트', category: '파티', aliases: ['커파', '커닝 파퀘'] },
+  { en: 'LPQ', ko: '루디브리엄 파티퀘스트', category: '파티', aliases: ['루파', '루디 파퀘'] },
+  { en: 'LMPQ', ko: '루디브리엄 미로 파티퀘스트', category: '파티', aliases: ['미로 파퀘'] },
+  { en: 'OPQ', ko: '오르비스 파티퀘스트', category: '파티', aliases: ['올파'] },
+  { en: 'GPQ', ko: '길드 대항전', category: '파티', aliases: ['길퀘'] },
+  { en: 'CC', ko: '채널 이동', category: '사냥', aliases: ['채이', '채널 바꿔'] },
+  { en: 'CH', ko: '채널', category: '사냥' },
+  { en: 'KS', ko: '스틸', category: '사냥', aliases: ['KSing'] },
+  { en: 'Leech', ko: '쩔', category: '사냥' },
+  { en: 'AFK', ko: '자리 비움', category: '사냥', aliases: ['잠수'] },
+  { en: 'DC', ko: '접속 끊김', category: '사냥', aliases: ['D/C', '팅김'] },
+  { en: 'Relog', ko: '재접속', category: '사냥' },
+  { en: 'HP pot', ko: '체력 포션', category: '아이템', aliases: ['빨포'] },
+  { en: 'MP pot', ko: '마나 포션', category: '아이템', aliases: ['파포'] },
+  { en: 'ACP', ko: '만병통치약', category: '아이템' },
+  { en: 'PE', ko: '파워 엘릭서', category: '아이템', aliases: ['파엘'] },
+  { en: 'GFA', ko: '장갑 공격력 주문서', category: '아이템', aliases: ['장공'] },
+  { en: 'WS', ko: '백의 주문서', category: '아이템', aliases: ['백줌'] },
+  { en: 'CS', ko: '혼돈의 주문서 또는 캐시샵 (문맥 판단)', category: '아이템', aliases: ['혼줌', '혼돈의 주문서', '캐시샵'] },
+  { en: 'WG', ko: '노가다 목장갑', category: '아이템', aliases: ['노목'] },
+  { en: 'Zhelm', ko: '자쿰의 투구', category: '아이템', aliases: ['ZH', 'Zhel', '자투'] },
+  { en: 'WA', ko: '무기 공격력', category: '아이템', aliases: ['WATK'] },
+  { en: 'MA', ko: '마력', category: '아이템', aliases: ['MATK'] },
+  { en: 'Zak', ko: '자쿰', category: '사냥', aliases: ['ZK'] },
+  { en: 'HT', ko: '혼테일', category: '사냥' },
+  { en: 'MM', ko: '머쉬맘 또는 신궁 (문맥 판단)', category: '사냥', aliases: ['머쉬맘', '신궁'] },
+  { en: 'HS', ko: '홀리 심볼', category: '스킬', aliases: ['홀심', '홀리심볼'] },
+  { en: 'HB', ko: '하이퍼 바디', category: '스킬', aliases: ['하이퍼바디', '하이퍼'] },
+  { en: 'Haste', ko: '헤이스트', category: '스킬', aliases: ['헤이'] },
+  { en: 'SE', ko: '샤프 아이즈', category: '스킬', aliases: ['샤프아이즈', '샤프'] },
+  { en: 'SI', ko: '윈드 부스터', category: '스킬', aliases: ['윈부'] },
+  { en: 'MW', ko: '메이플 용사', category: '스킬', aliases: ['메용'] },
+  { en: 'Rebuff', ko: '버프 다시 걸기', category: '스킬' },
+  { en: 'TY', ko: '고마워', category: '일상', aliases: ['THX', '감사', 'ㄱㅅ'] },
+  { en: 'NP', ko: '괜찮아', category: '일상', aliases: ['ㄱㅊ'] },
+  { en: 'BRB', ko: '잠깐 자리 비움', category: '일상' },
+  { en: 'GG', ko: '좋은 게임', category: '일상' },
+];
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function findTerms(text: string): GlossaryTerm[] {
+  return GLOSSARY.filter(term => [term.en, term.ko, ...(term.aliases ?? [])].some(alias => {
+    if (/\p{Script=Hangul}/u.test(alias)) return text.toLowerCase().includes(alias.toLowerCase());
+    // Boundaries prevent HS matching "thanks"; allow 1.5m and B> with no spaces.
+    const numeric = /^(k|m|b|bil)$/i.test(alias);
+    return new RegExp(`(?:${numeric ? '(?<=\\d)|^|[^a-zA-Z]' : '^|[^a-zA-Z0-9]'})(?:${escape(alias)})(?=$|[^a-zA-Z])`, 'i').test(text);
+  })).slice(0, 18);
+}
