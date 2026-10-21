@@ -79,11 +79,15 @@
       "icon": "build/icon.png"
     },
     "nsis": {
+      "artifactName": "mscw-chatter-${version}-win-${arch}-setup.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "글클메 채팅 번역기",
       "uninstallDisplayName": "글클메 채팅 번역기"
+    },
+    "portable": {
+      "artifactName": "mscw-chatter-${version}-win-${arch}-portable.${ext}"
     },
     "publish": null
   }

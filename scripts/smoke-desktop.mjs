@@ -38,6 +38,8 @@ try {
   await desktop.evaluate(async ({ clipboard, ClipboardItem }) => {
     const stored = [];
     for (const item of await clipboard.read()) {
+      // A fresh OS session may expose an empty placeholder ClipboardItem.
+      if (item.types.length === 0) continue;
       const types = {};
       for (const type of item.types) {
         const value = await item.getType(type);
