@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConfigStore, validateSettingsPatch } from '../electron/core/config';
+import { DEFAULT_SETTINGS } from '../src/shared/defaults';
 
 const directories: string[] = [];
 const fakeCrypto = { available: () => true, encrypt: (v: string) => Buffer.from(`test-encrypted:${v}`).toString('base64'), decrypt: (v: string) => Buffer.from(v, 'base64').toString().replace(/^test-encrypted:/, '') };
@@ -40,5 +41,17 @@ describe('configuration and credentials', () => {
   });
   it('validates IPC booleans and directions instead of trusting renderer input', () => {
     expect(() => validateSettingsPatch({ autoCopy: 'true' })).toThrow(); expect(() => validateSettingsPatch({ direction: 'random' })).toThrow(); expect(() => validateSettingsPatch({ provider: 'malicious' })).toThrow(); expect(validateSettingsPatch({ provider: 'openai', injected: 'ignore' })).toEqual({ provider: 'openai' });
+  });
+  it('loads old settings in full mode and persists mini mode independently of translation preferences', async () => {
+    const { path } = await setup();
+    const { miniMode: _oldVersionDidNotHaveThis, ...oldSettings } = structuredClone(DEFAULT_SETTINGS);
+    await writeFile(path, JSON.stringify({ version: 1, settings: { ...oldSettings, direction: 'en-ko', autoCopy: false }, encryptedKeys: {} }));
+    const store = new ConfigStore(path, fakeCrypto); await store.load();
+    expect(store.settings.miniMode).toBe(false); expect(store.warning).toBeNull();
+    await store.updateSettings({ miniMode: true });
+    const loaded = new ConfigStore(path, fakeCrypto); await loaded.load();
+    expect(loaded.settings).toMatchObject({ miniMode: true, direction: 'en-ko', autoCopy: false });
+    expect(() => validateSettingsPatch({ miniMode: 'true' })).toThrow();
+    expect(() => validateSettingsPatch({ miniMode: null })).toThrow();
   });
 });

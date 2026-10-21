@@ -1,1 +1,13 @@
-{ "date": "2026-10-21", "initialState": "empty directory", "font": "Pretendard (user requirement)", "framework": "Electron + React + TypeScript", "motion": "minimal", "spacing": "4pt" }
+{
+  "date": "2026-10-22",
+  "scope": "component: mini-translator",
+  "initialState": "existing Electron application",
+  "font": "Pretendard (user requirement; tokens.css:7-9)",
+  "framework": "Electron + React + TypeScript (package.json:9-36)",
+  "tokens": "tokens.css:6-61",
+  "motion": "minimal (tokens.css:55-59)",
+  "spacing": "4pt (tokens.css:37-43)",
+  "genre": "modern-minimal",
+  "theme": "Coral",
+  "macrostructure": "preserve existing Workbench; component scope"
+}

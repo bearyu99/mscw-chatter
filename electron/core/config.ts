@@ -80,7 +80,7 @@ export function validateSettingsPatch(value: unknown): SettingsPatch {
   const valid: SettingsPatch = {};
   if ('provider' in raw) { if (!isProvider(raw.provider)) throw new Error('제공자를 확인해 주세요.'); valid.provider = raw.provider; }
   if ('direction' in raw) { if (!['auto', 'ko-en', 'en-ko'].includes(String(raw.direction))) throw new Error('번역 방향을 확인해 주세요.'); valid.direction = raw.direction as Settings['direction']; }
-  for (const key of ['glossaryEnabled', 'autoCopy', 'alwaysOnTop', 'closeToTray'] as const) {
+  for (const key of ['glossaryEnabled', 'autoCopy', 'alwaysOnTop', 'closeToTray', 'miniMode'] as const) {
     if (key in raw) { if (typeof raw[key] !== 'boolean') throw new Error('설정값이 올바르지 않아요.'); valid[key] = raw[key]; }
   }
   return valid;

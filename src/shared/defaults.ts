@@ -8,7 +8,7 @@ export const PROVIDERS: { id: ProviderId; name: string; short: string; descripti
 ];
 export const DEFAULT_SETTINGS: Settings = {
   provider: 'openai', direction: 'auto', glossaryEnabled: true, autoCopy: true,
-  alwaysOnTop: false, closeToTray: true,
+  alwaysOnTop: false, closeToTray: true, miniMode: false,
   profiles: {
     openai: { model: 'gpt-4.1-mini', endpoint: '', localApi: 'openai' },
     anthropic: { model: 'claude-haiku-4-5', endpoint: '', localApi: 'openai' },

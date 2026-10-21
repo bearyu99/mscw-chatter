@@ -87,9 +87,25 @@ try {
   check('glossary toggle excludes glossary instructions', !requests.at(-1).messages[0].content.includes('Relevant glossary'));
   await copy('slow request');
   await waitUntil(async () => (await get()).runtime.pendingText === 'slow request');
+  const fullBounds = await desktop.evaluate(({ BrowserWindow, screen }) => {
+    const bounds = BrowserWindow.getAllWindows()[0].getNormalBounds();
+    const area = screen.getDisplayMatching(bounds).workArea;
+    const width = Math.min(bounds.width, area.width), height = Math.min(bounds.height, area.height);
+    return { width, height, x: Math.round(Math.max(area.x, Math.min(bounds.x, area.x + area.width - width))), y: Math.round(Math.max(area.y, Math.min(bounds.y, area.y + area.height - height))) };
+  });
+  await call('updateSettings', { miniMode: true });
+  const miniBounds = await desktop.evaluate(({ BrowserWindow }) => ({ bounds: BrowserWindow.getAllWindows()[0].getBounds(), minimum: BrowserWindow.getAllWindows()[0].getMinimumSize() }));
+  check('mini mode resizes the native window and its minimum', miniBounds.bounds.width === 420 && miniBounds.bounds.height === 420 && miniBounds.minimum[0] === 320 && miniBounds.minimum[1] === 320);
+  check('switching to mini mode preserves monitoring and the in-flight request', (await get()).runtime.monitoring && (await get()).runtime.pendingText === 'slow request');
   await copy('fast request'); await waitOriginal('fast request');
   await new Promise(resolve => setTimeout(resolve, 1300));
   check('stale response never overwrites newer native clipboard', await read() === '최신 응답');
+  const beforeRestore = (await get()).runtime.history;
+  await call('updateSettings', { miniMode: false });
+  const restoredBounds = await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNormalBounds());
+  assert.deepEqual(restoredBounds, fullBounds);
+  check('full mode restores the native window size within the current work area', true);
+  check('restoring full mode preserves history and monitoring', JSON.stringify((await get()).runtime.history) === JSON.stringify(beforeRestore) && (await get()).runtime.monitoring);
   await call('updateSettings', { autoCopy: false });
   await copy('안녕하세요'); await waitOriginal('안녕하세요');
   check('auto copy preference preserves the original', await read() === '안녕하세요');
@@ -99,7 +115,9 @@ try {
   await call('setMonitoring', false);
   await call('clearHistory');
   check('history clears without persistence', (await get()).runtime.history.length === 0);
+  await call('updateSettings', { miniMode: true });
   const config = await readFile(join(directory, 'configuration.json'), 'utf8');
+  check('mini mode preference persists for the next app launch', JSON.parse(config).settings.miniMode === true);
   check('chat and translated text are absent from persisted settings', !config.includes('HS pls') && !config.includes('홀심 부탁해요') && !config.includes('WTB WG'));
   await mkdir('artifacts', { recursive: true });
   await writeFile('artifacts/desktop-test-results.json', JSON.stringify({ testedAt: new Date().toISOString(), platform: process.platform, arch: process.arch, packaged: !!executablePath, ai: 'isolated loopback fixture, no live AI', checks }, null, 2));

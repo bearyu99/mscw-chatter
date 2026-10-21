@@ -12,6 +12,7 @@ export interface Settings {
   autoCopy: boolean;
   alwaysOnTop: boolean;
   closeToTray: boolean;
+  miniMode: boolean;
   profiles: Record<ProviderId, ProviderProfile>;
 }
 export interface ProfileInput extends ProviderProfile { provider: ProviderId; apiKey?: string; removeKey?: boolean }

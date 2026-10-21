@@ -1,0 +1,41 @@
+/* Hallmark · component: mini-translator · genre: modern-minimal · theme: Coral
+ * States: default, hover, focus-visible, active, disabled, loading, error, success.
+ * Pre-emit critique: philosophy 4, hierarchy 4, execution 4, specificity 5, restraint 5, variety 4.
+ * Retains the app's Pretendard, color and motion tokens; no macrostructure changes.
+ */
+.mini-translator { height: 100dvh; min-height: 280px; display: grid; grid-template-rows: 44px minmax(100px, 1fr) minmax(100px, 1fr); gap: var(--space-sm); padding: var(--space-sm) var(--space-md) var(--space-md); background: var(--color-paper); font-family: var(--font-body); }
+.mini-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.mini-monitor { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-xs); border-radius: var(--radius-sm); }
+.mini-monitor-label { font-size: var(--text-md); font-weight: 650; }
+.mini-monitor-state { min-width: 36px; font-size: var(--text-xs); color: var(--color-muted); text-align: left; }
+.mini-switch-track { width: 32px; height: 20px; display: flex; align-items: center; border: var(--rule-width) solid var(--color-switch-off); border-radius: var(--radius-pill); background: var(--color-switch-off); padding: 2px; }
+.mini-switch-track > span { width: 14px; height: 14px; background: var(--color-surface); border-radius: var(--radius-pill); transform: translateX(0); transition: transform var(--dur-short) var(--ease-out); }
+.mini-monitor[aria-checked="true"] .mini-switch-track { background: var(--color-accent); border-color: var(--color-accent); }
+.mini-monitor[aria-checked="true"] .mini-switch-track > span { transform: translateX(12px); }
+.mini-monitor:hover:not(:disabled), .mini-icon-button:hover:not(:disabled) { background: var(--color-hover); }
+.mini-icon-button { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: var(--radius-sm); color: var(--color-muted); }
+.mini-field { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: var(--rule-width) solid var(--color-control-border); border-radius: var(--radius-md); background: var(--color-surface); padding: 0 var(--space-md); }
+.mini-field-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); min-height: 36px; flex-shrink: 0; }
+.mini-field-heading > label, .mini-field-label { font-size: var(--text-xs); font-weight: 650; color: var(--color-ink-secondary); }
+.mini-shortcut, .mini-hint { font-size: var(--text-xs); color: var(--color-muted); }
+.mini-field textarea { display: block; width: 100%; flex: 1; min-height: 24px; margin: 0; padding: var(--space-xs); resize: none; border: 0; border-radius: var(--radius-sm); background: var(--color-transparent); font-size: var(--text-md); line-height: 1.55; overflow-wrap: anywhere; }
+.mini-field textarea:focus-visible { outline-offset: 0; }
+.mini-field-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-shrink: 0; min-height: 44px; }
+.mini-text-button { min-height: 44px; min-width: 60px; padding: 0 var(--space-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs); font-size: var(--text-xs); font-weight: 600; color: var(--color-accent); border-radius: var(--radius-sm); }
+.mini-text-button:hover:not(:disabled), .mini-state-hover .mini-text-button:not(:disabled) { background: var(--color-accent-soft); }
+.mini-result-status { display: inline-flex; align-items: center; gap: var(--space-xs); min-width: 0; font-size: var(--text-xs); color: var(--color-muted); }
+.mini-translator .is-success { color: var(--color-green); }
+.mini-field.has-error { border-color: var(--color-danger); }
+.mini-output-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-feedback { flex: 1; min-height: 24px; display: flex; align-items: flex-start; gap: var(--space-xs); margin: 0; padding: var(--space-xs); overflow: auto; font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }
+.mini-feedback svg { margin-top: 2px; }
+.mini-feedback.is-error { color: var(--color-danger); }
+.mini-monitor:focus-visible, .mini-icon-button:focus-visible, .mini-text-button:focus-visible, .mini-state-focus .mini-text-button:not(:disabled) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.mini-monitor:active:not(:disabled), .mini-icon-button:active:not(:disabled), .mini-text-button:active:not(:disabled), .mini-state-active .mini-text-button:not(:disabled) { transform: translateY(1px); background: var(--color-accent-soft); }
+.mini-translator button:disabled { opacity: .42; cursor: not-allowed; }
+.mini-enter-button { width: auto; min-width: 44px; min-height: 44px; padding: 0 var(--space-sm); gap: var(--space-xs); font-size: var(--text-xs); }
+@media (prefers-reduced-motion: reduce) {
+  .mini-switch-track > span { transition: none; }
+  .mini-translator .spin { animation: none; }
+  .mini-translator button:active:not(:disabled) { transform: none; }
+}

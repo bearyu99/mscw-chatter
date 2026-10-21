@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, safeStorage, shell, Tray } from 'electron';
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, safeStorage, screen, shell, Tray } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import type { ProfileInput, SettingsPatch, Snapshot } from '../src/shared/types';
@@ -6,10 +6,12 @@ import { GLOSSARY_URL } from '../src/shared/defaults';
 import { ConfigStore } from './core/config';
 import { TranslationController, type ClipboardPort } from './core/controller';
 import { translateWithProvider, validateProfile } from './core/providers';
+import { WindowMode, WINDOW_SIZES } from './core/window-mode';
 
 if (process.env.MSCW_USER_DATA) app.setPath('userData', process.env.MSCW_USER_DATA);
 app.setName('글클메 채팅 번역기');
 let mainWindow: BrowserWindow | null = null;
+let windowMode: WindowMode | null = null;
 let tray: Tray | null = null;
 let quitting = false;
 let store: ConfigStore;
@@ -49,12 +51,14 @@ function updateTray() {
   ]));
 }
 function createWindow() {
+  const size = store.settings.miniMode ? WINDOW_SIZES.mini : WINDOW_SIZES.full;
   mainWindow = new BrowserWindow({
-    width: 1240, height: 870, minWidth: 820, minHeight: 660,
+    ...size,
     title: '글클메 채팅 번역기', backgroundColor: '#f7f8fa', icon: iconPath,
     alwaysOnTop: store.settings.alwaysOnTop, show: false,
     webPreferences: { preload: join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false, webSecurity: true },
   });
+  windowMode = new WindowMode(mainWindow, store.settings.miniMode, bounds => screen.getDisplayMatching(bounds).workArea);
   mainWindow.setMenuBarVisibility(false);
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', event => event.preventDefault());
@@ -65,7 +69,7 @@ function createWindow() {
   mainWindow.on('close', event => {
     if (!quitting && store.settings.closeToTray && tray) { event.preventDefault(); mainWindow?.hide(); }
   });
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => { mainWindow = null; windowMode = null; });
   if (devUrl) void mainWindow.loadURL(devUrl);
   else void mainWindow.loadFile(join(__dirname, '..', 'dist', 'index.html'));
 }
@@ -86,6 +90,13 @@ function registerHandlers() {
     else if (patch && typeof patch === 'object' && ['direction', 'glossaryEnabled', 'autoCopy'].some(key => key in patch)) controller.cancel(false);
     await store.updateSettings(patch);
     mainWindow?.setAlwaysOnTop(store.settings.alwaysOnTop);
+    if (mainWindow?.isFullScreen()) {
+      if ('miniMode' in patch) {
+        // macOS exits native full screen asynchronously; resize once it finishes.
+        mainWindow.once('leave-full-screen', () => windowMode?.apply(store.settings.miniMode));
+        mainWindow.setFullScreen(false);
+      }
+    } else windowMode?.apply(store.settings.miniMode);
     changed();
     return snapshot();
   });

@@ -1,0 +1,7 @@
+.mini-preview { padding: var(--space-xl); }
+.mini-preview > h1 { font-size: var(--text-xl); }
+.mini-preview > p { margin: var(--space-sm) 0 var(--space-xl); color: var(--color-muted); }
+.mini-specimen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-xl); }
+.mini-specimen h2 { font-size: var(--text-md); margin-bottom: var(--space-sm); }
+.mini-specimen-frame { border: var(--rule-width) solid var(--color-line-strong); border-radius: var(--radius-lg); overflow: hidden; }
+.mini-specimen-frame .mini-translator { height: 420px; }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ArrowDown, BookOpen, Check, ChevronRight, CircleHelp, Clipboard, Copy, CornerDownLeft, History, Keyboard, Languages, Leaf, LoaderCircle, Monitor, Pause, Pin, Play, Settings2, ShieldCheck, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDown, BookOpen, Check, ChevronRight, CircleHelp, Clipboard, Copy, CornerDownLeft, History, Keyboard, Languages, Leaf, LoaderCircle, Minimize2, Monitor, Pause, Pin, Play, Settings2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import { MAX_INPUT_LENGTH, PROVIDERS } from './shared/defaults';
 import type { Direction, Page, Snapshot, TranslationEntry } from './shared/types';
@@ -7,6 +7,7 @@ import { Toggle } from './components/Toggle';
 import { Modal } from './components/Modal';
 import SettingsPage from './pages/SettingsPage';
 import GlossaryPage from './pages/GlossaryPage';
+import MiniTranslator from './components/MiniTranslator';
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -16,6 +17,12 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [help, setHelp] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState('');
+  const [modePending, setModePending] = useState(false);
+  const [monitorPending, setMonitorPending] = useState(false);
+  const [copyPending, setCopyPending] = useState(false);
+  const miniInput = useRef<HTMLTextAreaElement>(null);
+  const miniButton = useRef<HTMLButtonElement>(null);
+  const previousMini = useRef<boolean | undefined>(undefined);
   const act = useCallback(async (work: () => Promise<unknown>) => {
     try { await work(); } catch (error) { setMessage(error instanceof Error ? error.message : '작업을 완료하지 못했어요.'); }
   }, []);
@@ -28,6 +35,13 @@ export default function App() {
   useEffect(() => { if (!copyFeedback) return; const timeout = setTimeout(() => setCopyFeedback(''), 2200); return () => clearTimeout(timeout); }, [copyFeedback]);
   const newestId = snapshot?.runtime.history[0]?.id;
   useEffect(() => { if (snapshot?.runtime.history[0]) { setText(snapshot.runtime.history[0].original); setSelected(null); } }, [newestId]);
+  useEffect(() => {
+    const mini = snapshot?.settings.miniMode;
+    if (mini === undefined || modePending) return;
+    if (mini) miniInput.current?.focus();
+    else if (previousMini.current) miniButton.current?.focus();
+    previousMini.current = mini;
+  }, [snapshot?.settings.miniMode, modePending]);
   if (!snapshot) return <div className="loading-app"><Leaf size={32} /><p>{message || '번역기를 준비하고 있어요…'}</p></div>;
   const { settings, runtime } = snapshot;
   const provider = PROVIDERS.find(p => p.id === settings.provider)!;
@@ -38,18 +52,50 @@ export default function App() {
   const title = { translator: '실시간 번역', glossary: '게임 용어집', settings: '설정' }[page];
   const modifier = snapshot.platform === 'darwin' ? '⌘' : 'Ctrl';
   const update = (patch: Parameters<typeof api.updateSettings>[0]) => act(async () => { setSnapshot(await api.updateSettings(patch)); });
-  const start = () => {
-    if (!snapshot.native) { void act(() => api.setMonitoring(true)); return; }
-    if (!isReady) { setPage('settings'); setMessage('사용할 AI 제공자의 API 키를 먼저 저장해 주세요.'); return; }
-    void act(async () => { setSnapshot(await api.setMonitoring(!runtime.monitoring)); });
+  const setMiniMode = async (enabled: boolean) => {
+    if (modePending) return false;
+    setModePending(true);
+    try {
+      setSnapshot(await api.updateSettings({ miniMode: enabled }));
+      setHelp(false);
+      return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : '화면을 전환하지 못했어요. 다시 시도해 주세요.'); return false; }
+    finally { setModePending(false); }
   };
-  const translate = () => {
+  const openSettings = async (reason: string) => {
+    if (settings.miniMode && !await setMiniMode(false)) return;
+    setPage('settings'); setMessage(reason);
+  };
+  const start = async () => {
+    if (monitorPending) return;
+    if (!snapshot.native) { void act(() => api.setMonitoring(true)); return; }
+    if (!isReady && !runtime.monitoring) { await openSettings('사용할 AI 제공자의 API 키를 먼저 저장해 주세요.'); return; }
+    setMonitorPending(true);
+    try { await act(async () => { setSnapshot(await api.setMonitoring(!runtime.monitoring)); }); }
+    finally { setMonitorPending(false); }
+  };
+  const translate = async () => {
     if (!text.trim() || busy) return;
-    if (snapshot.native && !isReady) { setPage('settings'); setMessage('API 키를 먼저 연결해 주세요.'); return; }
+    if (snapshot.native && !isReady) { await openSettings('API 키를 먼저 연결해 주세요.'); return; }
     setSelected(null);
     void act(() => api.translate(text));
   };
-  const copy = (entry: TranslationEntry, original = false) => act(async () => { await api.copyEntry(entry.id, original); setCopyFeedback(original ? `original-${entry.id}` : entry.id); });
+  const copy = async (entry: TranslationEntry, original = false) => {
+    if (copyPending) return;
+    setCopyPending(true);
+    try { await act(async () => { await api.copyEntry(entry.id, original); setCopyFeedback(original ? `original-${entry.id}` : entry.id); }); }
+    finally { setCopyPending(false); }
+  };
+
+  if (settings.miniMode) return <MiniTranslator
+    text={busy && runtime.pendingText ? runtime.pendingText : text} inputRef={miniInput} onTextChange={setText}
+    monitoring={runtime.monitoring} monitorPending={monitorPending} onToggleMonitoring={() => void start()}
+    onRestore={() => void setMiniMode(false)} modePending={modePending} busy={busy} entry={displayEntry}
+    error={message || runtime.error || snapshot.storageWarning} notice={runtime.notice || (!snapshot.native ? '미리보기 · 자동 번역과 복사는 데스크톱 앱에서 사용할 수 있어요.' : null)}
+    copied={!!displayEntry && copyFeedback === displayEntry.id} copyPending={copyPending} autoCopy={settings.autoCopy}
+    modifier={modifier} onTranslate={() => void translate()} onCancel={() => void act(() => api.cancelTranslation())}
+    onCopy={() => { if (displayEntry) void copy(displayEntry); }}
+  />;
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -75,6 +121,7 @@ export default function App() {
         <div className="breadcrumb"><span>워크스페이스</span><ChevronRight size={13} /><strong>{title}</strong></div>
         <div className="topbar-actions"><button className="provider-status" onClick={() => setPage('settings')}><span className={`status-dot ${isReady ? 'ready' : 'subtle'}`} />{provider.name}<span className="provider-status-text">{isReady ? '선택됨' : '연결 필요'}</span><ChevronRight size={13} /></button>
           <span className="topbar-separator" />
+          <button ref={miniButton} className="icon-button mini-enter-button" title="미니 화면으로 전환" aria-label="미니 화면으로 전환" disabled={modePending} onClick={() => void setMiniMode(true)}><Minimize2 size={17} aria-hidden="true" /><span>미니 화면</span></button>
           <button className={`icon-button ${settings.alwaysOnTop ? 'is-pinned' : ''}`} title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed={settings.alwaysOnTop} onClick={() => void update({ alwaysOnTop: !settings.alwaysOnTop })}><Pin size={17} /></button>
           <button className="icon-button" title="사용 방법" aria-label="사용 방법" onClick={() => setHelp(true)}><CircleHelp size={18} /></button>
         </div>
