@@ -101,6 +101,12 @@ Windows 10은 **64비트**를 대상으로 합니다. 32비트 Windows는 지원
 
 ## 검증
 
+### GitHub Release 업로드
+
+GitHub에서 버전 태그(예: `v0.1.0`)와 사용법을 적은 Release 초안을 먼저 저장하세요. Actions의 **Publish desktop release → Run workflow**에서 성공한 `Verify and package desktop app`의 실행 ID와 초안의 태그를 입력하면, 해당 빌드의 Windows 포터블 EXE와 macOS 유니버설 앱 ZIP 및 `SHA256SUMS.txt`를 업로드하고 Release를 게시합니다. 태그는 빌드 소스의 `package.json` 버전과 일치해야 합니다. 성공한 main 빌드만 허용하며, 다른 내용의 기존 첨부 파일은 덮어쓰지 않습니다. 별도 개인 토큰은 필요하지 않습니다.
+
+### 로컬 검증
+
 ```sh
 # 상태 기계, 언어/용어집, 제공자 요청·응답, 키 저장·설정 테스트
 npm test
