@@ -1,5 +1,5 @@
 import { Check, Copy, CornerDownLeft, LoaderCircle, Maximize2, TriangleAlert, X } from 'lucide-react';
-import { useId, type Ref } from 'react';
+import { useId, type Ref, type ClipboardEventHandler } from 'react';
 import { MAX_INPUT_LENGTH } from '../shared/defaults';
 import type { TranslationEntry } from '../shared/types';
 import './MiniTranslator.css';
@@ -8,6 +8,8 @@ export interface MiniTranslatorProps {
   text: string;
   inputRef?: Ref<HTMLTextAreaElement>;
   onTextChange(text: string): void;
+  onPaste?: ClipboardEventHandler<HTMLTextAreaElement>;
+  monitorLabel?: string;
   monitoring: boolean;
   monitorPending?: boolean;
   onToggleMonitoring(): void;
@@ -34,7 +36,7 @@ export default function MiniTranslator(props: MiniTranslatorProps) {
   const status = error ? '' : busy ? '번역 중…' : copied ? '복사됨' : entry?.copied ? '클립보드에 복사됨' : '';
   return <main className="mini-translator" aria-label="미니 번역기">
     <header className="mini-toolbar">
-      <button type="button" className="mini-monitor" role="switch" aria-checked={monitoring} aria-label="클립보드 자동 번역" aria-busy={monitorPending} disabled={monitorPending} onClick={onToggleMonitoring}>
+      <button type="button" className="mini-monitor" role="switch" aria-checked={monitoring} aria-label={props.monitorLabel ?? '클립보드 자동 번역'} aria-busy={monitorPending} disabled={monitorPending} onClick={onToggleMonitoring}>
         <span className="mini-monitor-label">자동 번역</span>
         <span className="mini-switch-track" aria-hidden="true"><span /></span>
         <span className="mini-monitor-state">{monitorPending ? '변경 중' : monitoring ? '켜짐' : '꺼짐'}</span>
@@ -44,7 +46,7 @@ export default function MiniTranslator(props: MiniTranslatorProps) {
 
     <section className="mini-field mini-source">
       <div className="mini-field-heading"><label htmlFor={inputId}>원문</label><span className="mini-shortcut">{modifier} ↵ 번역</span></div>
-      <textarea ref={inputRef} id={inputId} value={text} onChange={event => onTextChange(event.target.value)} maxLength={MAX_INPUT_LENGTH} placeholder="번역할 문장을 입력하거나 복사하세요." readOnly={busy} aria-describedby={hintId} onKeyDown={event => {
+      <textarea ref={inputRef} id={inputId} value={text} onChange={event => onTextChange(event.target.value)} onPaste={props.onPaste} maxLength={MAX_INPUT_LENGTH} placeholder="번역할 문장을 입력하거나 붙여넣으세요." readOnly={busy} aria-describedby={hintId} onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); onTranslate(); }
         if (busy && event.key === 'Escape') { event.preventDefault(); onCancel(); }

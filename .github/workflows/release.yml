@@ -146,3 +146,15 @@ jobs:
             await core.summary.addHeading('Release published').addLink(published.name, published.html_url)
               .addRaw(`\n\nSource: ${process.env.SOURCE_SHA}\n\n`)
               .addCodeBlock(sums.toString('utf8'), 'text').write();
+
+  pages:
+    needs: publish
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      release_tag: ${{ inputs.tag }}
+      build_run_id: ${{ inputs.build_run_id }}

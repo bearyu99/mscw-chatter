@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { emptyRuntime, MAX_INPUT_LENGTH } from '../../src/shared/defaults';
 import type { RuntimeState, Settings, TranslationEntry } from '../../src/shared/types';
 import { resolveDirection, validateText } from './language';
@@ -90,7 +89,7 @@ export class TranslationController {
       if (generation !== this.generation) return;
       const result = await (this.deps.translate ?? translateWithProvider)({ text, direction, provider: settings.provider, profile: settings.profiles[settings.provider], apiKey, glossaryEnabled: settings.glossaryEnabled, signal });
       if (generation !== this.generation || signal.aborted) return;
-      const entry: TranslationEntry = { id: randomUUID(), original: text, translated: result.text, direction, provider: settings.provider, model: settings.profiles[settings.provider].model, durationMs: Math.round(performance.now() - start), createdAt: Date.now(), glossaryTerms: result.terms, copied: false, source };
+      const entry: TranslationEntry = { id: globalThis.crypto.randomUUID(), original: text, translated: result.text, direction, provider: settings.provider, model: settings.profiles[settings.provider].model, durationMs: Math.round(performance.now() - start), createdAt: Date.now(), glossaryTerms: result.terms, copied: false, source };
       if (settings.autoCopy) {
         const current = await this.deps.clipboard.readText();
         if (generation !== this.generation || signal.aborted) return;

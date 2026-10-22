@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { ArrowDown, BookOpen, Check, ChevronRight, CircleHelp, Clipboard, Copy, CornerDownLeft, History, Keyboard, Languages, Leaf, LoaderCircle, Minimize2, Monitor, Pause, Pin, Play, Settings2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import { MAX_INPUT_LENGTH, PROVIDERS } from './shared/defaults';
@@ -68,7 +68,6 @@ export default function App() {
   };
   const start = async () => {
     if (monitorPending) return;
-    if (!snapshot.native) { void act(() => api.setMonitoring(true)); return; }
     if (!isReady && !runtime.monitoring) { await openSettings('사용할 AI 제공자의 API 키를 먼저 저장해 주세요.'); return; }
     setMonitorPending(true);
     try { await act(async () => { setSnapshot(await api.setMonitoring(!runtime.monitoring)); }); }
@@ -76,7 +75,7 @@ export default function App() {
   };
   const translate = async () => {
     if (!text.trim() || busy) return;
-    if (snapshot.native && !isReady) { await openSettings('API 키를 먼저 연결해 주세요.'); return; }
+    if (!isReady) { await openSettings('API 키를 먼저 연결해 주세요.'); return; }
     setSelected(null);
     void act(() => api.translate(text));
   };
@@ -86,12 +85,21 @@ export default function App() {
     try { await act(async () => { await api.copyEntry(entry.id, original); setCopyFeedback(original ? `original-${entry.id}` : entry.id); }); }
     finally { setCopyPending(false); }
   };
+  const pasted = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (snapshot.native || !runtime.monitoring || busy) return;
+    const input = event.currentTarget;
+    const next = input.value.slice(0, input.selectionStart) + event.clipboardData.getData('text/plain') + input.value.slice(input.selectionEnd);
+    if (next.length > MAX_INPUT_LENGTH || !next.trim()) return;
+    event.preventDefault(); setText(next); setSelected(null);
+    void act(() => api.translate(next));
+  };
 
   if (settings.miniMode) return <MiniTranslator
-    text={busy && runtime.pendingText ? runtime.pendingText : text} inputRef={miniInput} onTextChange={setText}
+    text={busy && runtime.pendingText ? runtime.pendingText : text} inputRef={miniInput} onTextChange={setText} onPaste={pasted}
+    monitorLabel={snapshot.native ? '클립보드 자동 번역' : '붙여넣기 자동 번역'}
     monitoring={runtime.monitoring} monitorPending={monitorPending} onToggleMonitoring={() => void start()}
     onRestore={() => void setMiniMode(false)} modePending={modePending} busy={busy} entry={displayEntry}
-    error={message || runtime.error || snapshot.storageWarning} notice={runtime.notice || (!snapshot.native ? '미리보기 · 자동 번역과 복사는 데스크톱 앱에서 사용할 수 있어요.' : null)}
+    error={message || runtime.error || snapshot.storageWarning} notice={runtime.notice || (!snapshot.native ? '웹: 원문 창에 붙여넣으면 자동 번역해요.' : null)}
     copied={!!displayEntry && copyFeedback === displayEntry.id} copyPending={copyPending} autoCopy={settings.autoCopy}
     modifier={modifier} onTranslate={() => void translate()} onCancel={() => void act(() => api.cancelTranslation())}
     onCopy={() => { if (displayEntry) void copy(displayEntry); }}
@@ -122,12 +130,12 @@ export default function App() {
         <div className="topbar-actions"><button className="provider-status" onClick={() => setPage('settings')}><span className={`status-dot ${isReady ? 'ready' : 'subtle'}`} />{provider.name}<span className="provider-status-text">{isReady ? '선택됨' : '연결 필요'}</span><ChevronRight size={13} /></button>
           <span className="topbar-separator" />
           <button ref={miniButton} className="icon-button mini-enter-button" title="미니 화면으로 전환" aria-label="미니 화면으로 전환" disabled={modePending} onClick={() => void setMiniMode(true)}><Minimize2 size={17} aria-hidden="true" /><span>미니 화면</span></button>
-          <button className={`icon-button ${settings.alwaysOnTop ? 'is-pinned' : ''}`} title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed={settings.alwaysOnTop} onClick={() => void update({ alwaysOnTop: !settings.alwaysOnTop })}><Pin size={17} /></button>
+          {snapshot.native && <button className={`icon-button ${settings.alwaysOnTop ? 'is-pinned' : ''}`} title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed={settings.alwaysOnTop} onClick={() => void update({ alwaysOnTop: !settings.alwaysOnTop })}><Pin size={17} /></button>}
           <button className="icon-button" title="사용 방법" aria-label="사용 방법" onClick={() => setHelp(true)}><CircleHelp size={18} /></button>
         </div>
       </header>
 
-      {!snapshot.native && <div className="preview-notice"><Monitor size={14} /><span>브라우저 미리보기 · 클립보드 감지와 AI 연결은 데스크톱 앱에서 사용할 수 있어요.</span></div>}
+      {!snapshot.native && <div className="preview-notice"><Monitor size={14} /><span>웹 번역기: API 키와 기록은 이 탭에만 보관해요. 다른 앱의 클립보드 감지는 데스크톱 앱에서 지원해요.</span><a href={`https://github.com/bearyu99/mscw-chatter/releases/tag/v${snapshot.version}`} target="_blank" rel="noopener noreferrer">데스크톱 앱 다운로드 ↗</a></div>}
       {snapshot.storageWarning && <div className="notice warning" role="alert">{snapshot.storageWarning}</div>}
 
       <main className="main-content">
@@ -137,7 +145,7 @@ export default function App() {
           <div className="content-columns"><div className="translation-workbench">
             <section className={`monitor-card ${runtime.monitoring ? 'monitor-on' : ''}`} aria-label="자동 번역">
               <div className="monitor-symbol"><Clipboard size={22} /><span className={runtime.monitoring ? 'monitor-indicator on' : 'monitor-indicator'} /></div>
-              <div className="monitor-description"><div className="monitor-title">클립보드 자동 번역 <span className={`state-badge ${runtime.monitoring ? 'on' : ''}`}>{runtime.monitoring ? '켜짐' : '꺼짐'}</span></div><p>{runtime.monitoring ? '새로 복사한 문장을 감지하고 있어요.' : '시작하면 새로 복사한 문장을 자동으로 번역해요.'}</p></div>
+              <div className="monitor-description"><div className="monitor-title">{snapshot.native ? '클립보드 자동 번역' : '붙여넣기 자동 번역'} <span className={`state-badge ${runtime.monitoring ? 'on' : ''}`}>{runtime.monitoring ? '켜짐' : '꺼짐'}</span></div><p>{snapshot.native ? (runtime.monitoring ? '새로 복사한 문장을 감지하고 있어요.' : '시작하면 새로 복사한 문장을 자동으로 번역해요.') : (runtime.monitoring ? '원문 창에 붙여넣으면 바로 번역해요.' : '시작하면 원문 창에 붙여넣은 문장을 자동으로 번역해요.')}</p></div>
               <button className={runtime.monitoring ? 'button secondary monitor-button' : 'button primary monitor-button'} onClick={start}>{runtime.monitoring ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}<span>{runtime.monitoring ? '번역 중지' : '번역 시작'}</span></button>
             </section>
 
@@ -145,7 +153,7 @@ export default function App() {
               <div className="editor-toolbar"><div className="language-switch" role="group" aria-label="번역 방향">{([{ value: 'auto', label: '자동 감지' }, { value: 'ko-en', label: '한 → 영' }, { value: 'en-ko', label: '영 → 한' }] as { value: Direction; label: string }[]).map(item => <button key={item.value} aria-pressed={settings.direction === item.value} className={settings.direction === item.value ? 'active' : ''} onClick={() => void update({ direction: item.value })}>{item.value === 'auto' && <Languages size={14} />}{item.label}</button>)}</div><span className="editor-toolbar-meta"><span className="status-dot" />{busy ? '번역 중' : runtime.monitoring ? '복사 대기 중' : '직접 입력 가능'}</span></div>
 
               <div className="source-editor"><div className="editor-label"><label htmlFor="chat-input">원문 <span>{busy ? (/[\p{Script=Hangul}]/u.test(runtime.pendingText ?? '') ? '한국어' : '영어') : '입력'}</span></label><button className="text-action" disabled={!text} onClick={() => setText('')}>지우기</button></div>
-                <textarea id="chat-input" aria-label="번역할 채팅" placeholder={'번역할 문장을 입력해 주세요.\n자동 번역을 켜면 복사한 내용이 여기에 표시돼요.'} value={busy && runtime.pendingText ? runtime.pendingText : text} readOnly={busy} maxLength={MAX_INPUT_LENGTH} onChange={event => setText(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); translate(); } }} />
+                <textarea id="chat-input" onPaste={pasted} aria-label="번역할 채팅" placeholder={'번역할 문장을 입력하거나 붙여넣어 주세요.'} value={busy && runtime.pendingText ? runtime.pendingText : text} readOnly={busy} maxLength={MAX_INPUT_LENGTH} onChange={event => setText(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); translate(); } }} />
                 <div className="editor-bottom"><span className="character-count">{(busy ? runtime.pendingText?.length ?? 0 : text.length).toLocaleString()} <span>/ {MAX_INPUT_LENGTH.toLocaleString()}</span></span>{busy ? <button className="button compact secondary" onClick={() => void act(() => api.cancelTranslation())}><X size={14} />취소</button> : <button className="button compact dark" disabled={!text.trim()} onClick={translate}>번역하기 <CornerDownLeft size={14} /><kbd>{modifier} ↵</kbd></button>}</div>
               </div>
 
@@ -164,7 +172,7 @@ export default function App() {
           </div>
 
           <aside className="tips-column" aria-label="사용 안내">
-            <section className="howto-card"><div className="section-heading"><h2>대화가 쉬워지는 세 단계</h2><Keyboard size={17} /></div><ol className="steps"><li><span className="step-number">1</span><div><strong>문장을 복사하세요</strong><p>번역할 글자를 선택하고</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>C</kbd></div></div></li><li><span className="step-number">2</span><div><strong>잠시만 기다려 주세요</strong><p>선택한 AI가 문맥에 맞게<br />번역하고 자동으로 복사해요.</p></div></li><li><span className="step-number">3</span><div><strong>바로 붙여넣으세요</strong><p>게임 채팅창에서</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>V</kbd></div></div></li></ol><div className="howto-note"><ShieldCheck size={15} /><span>자동 번역을 켜 둔 동안에는<br />복사한 텍스트가 선택한 AI로 전송돼요.</span></div></section>
+            <section className="howto-card"><div className="section-heading"><h2>대화가 쉬워지는 세 단계</h2><Keyboard size={17} /></div><ol className="steps"><li><span className="step-number">1</span><div><strong>{snapshot.native ? '문장을 복사하세요' : '원문을 붙여넣으세요'}</strong><p>{snapshot.native ? '번역할 글자를 선택하고' : '원문 창에 문장을 입력하고'}</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>{snapshot.native ? 'C' : 'V'}</kbd></div></div></li><li><span className="step-number">2</span><div><strong>잠시만 기다려 주세요</strong><p>{snapshot.native ? <>선택한 AI가 문맥에 맞게<br />번역하고 자동으로 복사해요.</> : <>번역하기를 누른 뒤<br />결과의 복사 버튼을 누르세요.</>}</p></div></li><li><span className="step-number">3</span><div><strong>바로 붙여넣으세요</strong><p>게임 채팅창에서</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>V</kbd></div></div></li></ol><div className="howto-note"><ShieldCheck size={15} /><span>{snapshot.native ? <>자동 번역을 켜 둔 동안에는<br />복사한 텍스트가 선택한 AI로 전송돼요.</> : <>붙여넣기 자동 번역을 켜면<br />원문 창에 붙여넣은 문장만 전송돼요.</>}</span></div></section>
             <section className="example-card"><div className="example-head"><span className="status-dot" /><h2>이런 대화도 자연스럽게</h2><span>예시</span></div><div className="example-original">커파 같이 하실 분?<br />힐러 한 분 구해요!</div><div className="example-arrow"><ArrowDown size={16} /><span>게임 용어집 사용</span></div><div className="example-translation">LFM KPQ!<br />Need 1 healer.</div><div className="example-foot"><BookOpen size={13} /><span>커파 → KPQ</span></div></section>
             <div className="shortcut-tip"><Keyboard size={16} /><div><strong>게임 중에도 간편하게</strong><p>{snapshot.shortcutAvailable ? <><kbd>{modifier} ⇧ Space</kbd><br />자동 번역 켜기 / 끄기</> : snapshot.native ? '트레이 아이콘에서 자동 번역을 켜고 끌 수 있어요.' : '데스크톱 앱에서 단축키로 자동 번역을 켜고 끌 수 있어요.'}</p></div></div>
           </aside></div>
@@ -173,6 +181,6 @@ export default function App() {
       </main>
     </div>
     {message && <div className="toast" role="alert"><CircleHelp size={18} /><span>{message}</span><button className="icon-button" aria-label="알림 닫기" onClick={() => setMessage('')}><X size={16} /></button></div>}
-    {help && <Modal title="복사 한 번으로 대화 준비" onClose={() => setHelp(false)}><div className="help-content"><p>설정에서 AI 제공자와 모델을 선택하고 API 키를 저장해 주세요. 로컬 모델은 실행 중인 Ollama 또는 OpenAI 호환 서버를 연결하면 됩니다.</p><ol><li><strong>번역 시작</strong>을 누르세요. 이전 클립보드는 번역하지 않아요.</li><li>선택·복사가 가능한 곳에서 문장을 복사하세요.</li><li>결과의 <strong>클립보드에 복사됨</strong> 표시를 확인하고 붙여넣으세요.</li></ol><p>게임 채팅이 선택·복사를 지원하지 않으면 원문 입력창을 사용해 주세요. 화면 인식(OCR)이나 게임으로 자동 전송하는 기능은 포함하지 않습니다.</p><p>번역 방향을 수동으로 고정할 수 있어요. 단어를 검색하려면 게임 용어집을 열어 보세요. 창을 닫으면 트레이에서 계속 실행되며, 종료는 트레이 메뉴에서 할 수 있습니다.</p><button className="button primary" onClick={() => setHelp(false)}>확인했어요<Check size={16} /></button></div></Modal>}
+    {help && <Modal title="복사 한 번으로 대화 준비" onClose={() => setHelp(false)}><div className="help-content">{snapshot.native ? <><p>설정에서 AI 제공자와 모델을 선택하고 API 키를 저장해 주세요. 로컬 모델은 실행 중인 Ollama 또는 OpenAI 호환 서버를 연결하면 됩니다.</p><ol><li><strong>번역 시작</strong>을 누르세요. 이전 클립보드는 번역하지 않아요.</li><li>선택·복사가 가능한 곳에서 문장을 복사하세요.</li><li>결과의 <strong>클립보드에 복사됨</strong> 표시를 확인하고 붙여넣으세요.</li></ol><p>게임 채팅이 선택·복사를 지원하지 않으면 원문 입력창을 사용해 주세요. 화면 인식(OCR)이나 게임으로 자동 전송하는 기능은 포함하지 않습니다.</p><p>번역 방향을 수동으로 고정할 수 있어요. 단어를 검색하려면 게임 용어집을 열어 보세요. 창을 닫으면 트레이에서 계속 실행되며, 종료는 트레이 메뉴에서 할 수 있습니다.</p></> : <><p>설정에서 OpenAI, Anthropic 또는 Google과 모델을 선택하고 본인의 API 키를 연결하세요. 키와 기록은 이 탭에만 보관하며, 새로고침하거나 페이지를 떠나면 키를 다시 입력해야 해요.</p><ol><li>원문 창에 문장을 입력하거나 붙여넣으세요.</li><li><strong>번역하기</strong>를 누르거나 <strong>붙여넣기 자동 번역</strong>을 켜세요.</li><li>결과의 <strong>번역문 복사</strong>를 누르고 게임에 붙여넣으세요.</li></ol><p>웹에서는 다른 앱의 클립보드 감시와 로컬 모델 연결을 지원하지 않아요. 상단에서 데스크톱 앱을 받을 수 있어요.</p></>}<button className="button primary" onClick={() => setHelp(false)}>확인했어요<Check size={16} /></button></div></Modal>}
   </div>;
 }

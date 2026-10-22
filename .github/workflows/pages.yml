@@ -1,0 +1,129 @@
+name: Deploy released web app to Pages
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      build_run_id:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable release tag (blank uses latest)
+        type: string
+      build_run_id:
+        description: Successful main build ID (blank finds the release build)
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tag: ${{ steps.source.outputs.tag }}
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Verify published release and tested web artifact
+        id: source
+        uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        with:
+          script: |
+            const repo = context.repo;
+            const { data: latest } = await github.rest.repos.getLatestRelease(repo);
+            const tag = process.env.RELEASE_TAG || latest.tag_name;
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error('Expected a stable version tag');
+            const { data: release } = await github.rest.repos.getReleaseByTag({ ...repo, tag });
+            if (release.draft || release.prerelease || release.id !== latest.id) throw new Error('Only the latest published stable release can update Pages');
+            let { data: ref } = await github.rest.git.getRef({ ...repo, ref: `tags/${tag}` });
+            let object = ref.object;
+            for (let depth = 0; object.type === 'tag' && depth < 5; depth++) object = (await github.rest.git.getTag({ ...repo, tag_sha: object.sha })).data.object;
+            if (object.type !== 'commit') throw new Error('Release tag must resolve to a commit');
+            const sha = object.sha;
+            let run;
+            if (process.env.BUILD_RUN_ID) {
+              if (!/^\d+$/.test(process.env.BUILD_RUN_ID)) throw new Error('Invalid build ID');
+              const runId = Number(process.env.BUILD_RUN_ID);
+              if (!Number.isSafeInteger(runId)) throw new Error('Invalid build ID');
+              ({ data: run } = await github.rest.actions.getWorkflowRun({ ...repo, run_id: runId }));
+            } else {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({ ...repo, head_sha: sha, status: 'success', per_page: 100 });
+              run = data.workflow_runs.find(item => item.path === '.github/workflows/build.yml' && item.head_branch === 'main');
+            }
+            if (!run || run.status !== 'completed' || run.conclusion !== 'success' || run.head_sha !== sha ||
+                run.head_branch !== 'main' || run.head_repository?.full_name !== `${repo.owner}/${repo.repo}` ||
+                run.path !== '.github/workflows/build.yml' || !['push', 'workflow_dispatch'].includes(run.event)) throw new Error('Release source does not match a successful main build');
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...repo, run_id: run.id, per_page: 100 });
+            if (!artifacts.some(item => item.name === 'mscw-chatter-web' && !item.expired)) throw new Error('Tested web artifact is missing or expired; rebuild the release source');
+            core.setOutput('run_id', run.id);
+            core.setOutput('sha', sha);
+            core.setOutput('tag', tag);
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v8
+        with:
+          name: mscw-chatter-web
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: site
+          digest-mismatch: error
+      - name: Verify public files and record the release source
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          node scripts/verify-web-build.mjs site
+          node --input-type=module - <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          await writeFile('site/release.json', JSON.stringify({ tag: process.env.RELEASE_TAG, sha: process.env.SOURCE_SHA }) + '\n');
+          NODE
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: github-pages-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Refuse to replace a newer release
+        uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        with:
+          script: |
+            const { data } = await github.rest.repos.getLatestRelease(context.repo);
+            if (data.tag_name !== process.env.RELEASE_TAG) throw new Error('A newer release was published; refusing to replace its website');
+      - uses: actions/configure-pages@v5
+      - name: Deploy release to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

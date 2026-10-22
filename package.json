@@ -1,7 +1,7 @@
 {
   "name": "mscw-chatter",
   "productName": "글클메 채팅 번역기",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "글로벌 클래식 메이플을 위한 한국어·영어 클립보드 번역기",
   "author": "mscw-chatter",
@@ -10,7 +10,7 @@
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "dev:web": "vite --host 127.0.0.1",
+    "dev:web": "vite --mode web --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node scripts/build-electron.mjs",
     "start": "electron .",
     "test": "vitest run",
@@ -24,7 +24,8 @@
     "dist:mac:x64": "npm run build && electron-builder --mac zip --x64",
     "dist:mac:universal": "npm run build && electron-builder --mac zip --universal",
     "dist:win:setup": "npm run build && electron-builder --win nsis --x64",
-    "measure:package": "node scripts/measure-package.mjs"
+    "measure:package": "node scripts/measure-package.mjs",
+    "build:web": "tsc --noEmit && vite build --mode web && node scripts/verify-web-build.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

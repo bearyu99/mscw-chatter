@@ -21,7 +21,15 @@ npm run dev
 
 게임 채팅이 텍스트 선택·복사를 지원하지 않으면 원문 입력창에 문장을 직접 입력하세요. 이 앱은 화면 인식(OCR), 게임 메모리 접근, 키 입력 주입 또는 채팅 자동 전송을 수행하지 않습니다. 복사 가능한 텍스트의 번역이 지원 범위입니다.
 
-## 주요 기능
+## 웹에서 사용하기
+
+[웹 번역기](https://bearyu99.github.io/mscw-chatter/)에서도 OpenAI, Anthropic, Google로 실제 번역할 수 있습니다. 설정에서 본인의 API 키와 모델 ID를 입력하고 **이 탭에 연결**을 누르세요. 원문을 입력해 번역하거나 **붙여넣기 자동 번역**을 켜고 원문 창에 문장을 붙여넣으세요. 결과는 **번역문 복사**로 복사합니다. 용어집, 번역 방향, 미니 화면과 세션 기록도 사용할 수 있습니다. 상단 링크에서 같은 버전의 데스크톱 앱을 받을 수 있습니다.
+
+웹의 키, 설정과 기록은 열린 페이지의 메모리에만 보관합니다. 키를 localStorage, sessionStorage, 쿠키 또는 배포 파일에 저장하지 않습니다. 새로고침하거나 페이지를 떠나면 다시 연결해야 합니다. 각 사용자의 키는 선택한 제공자의 공식 API로 직접 전송하며 공용 운영자 키나 중계 서버를 사용하지 않습니다. 페이지 코드나 브라우저 확장 프로그램이 메모리에 접근할 수 있으므로 OS 암호화 저장과 보안 특성이 다릅니다.
+
+브라우저는 다른 앱의 클립보드를 계속 감시하지 않습니다. 자동 번역은 이 페이지의 원문 창에 붙여넣은 텍스트만 대상으로 하며 자동 복사 대신 결과의 복사 버튼을 사용합니다. 복사 권한이 거부되면 결과를 선택해 직접 복사하세요. 로컬 모델, 항상 위에 표시, 트레이와 전역 단축키는 데스크톱 앱에서 지원합니다. 클라우드 제공자의 브라우저 접근 정책, API 권한과 모델 제공 여부에 따라 요청이 거부될 수 있습니다.
+
+## 데스크톱 주요 기능
 
 - 250ms 간격의 백그라운드 클립보드 감지, 한국어→영어 / 영어→한국어 자동 구분 및 수동 방향 고정
 - OpenAI Chat Completions, Anthropic Messages, Google generateContent, Ollama, 로컬 OpenAI 호환 서버
@@ -120,6 +128,10 @@ macOS 앱은 외부 인증서가 필요 없는 개발용 ad-hoc 서명을 적용
 
 GitHub에서 버전 태그(예: `v0.2.1`)와 사용법을 적은 Release 초안을 먼저 저장하세요. Actions의 **Publish desktop release → Run workflow**에서 성공한 `Verify and package desktop app`의 실행 ID와 초안의 태그를 입력하면, 해당 빌드의 Windows 포터블 EXE, Apple Silicon과 Intel Mac용 앱 ZIP, `SHA256SUMS.txt`를 업로드하고 Release를 게시합니다. 태그는 빌드 소스의 `package.json` 버전과 일치해야 합니다. 성공한 main 빌드만 허용하며, 다른 내용의 기존 첨부 파일은 덮어쓰지 않습니다. 별도 개인 토큰은 필요하지 않습니다.
 
+Release 게시가 성공하면 같은 빌드의 검증된 웹 산출물을 GitHub Pages에 배포합니다. release.yml이 pages.yml을 직접 호출하므로 자동 게시에도 적용됩니다. GitHub 화면에서 안정 버전 Release를 직접 게시할 때도 Pages 배포를 실행합니다. 최신 안정 버전만 허용하며 태그, 성공한 main 빌드의 소스 SHA와 웹 산출물을 대조합니다. main에만 있는 미출시 코드는 Pages에 배포하지 않습니다.
+
+저장소의 **Settings → Pages → Source**는 **GitHub Actions**로 설정합니다. Pages만 다시 배포할 때는 **Deploy released web app to Pages**를 수동 실행하고 Release 태그와 성공한 빌드 ID를 입력하세요. 비워 두면 최신 안정 버전과 일치하는 빌드를 찾습니다. 산출물이 만료됐다면 해당 소스를 다시 빌드해야 합니다. Release 게시 후 Pages 배포가 실패해도 이미 게시한 Release를 삭제하지 않으며, Pages 작업만 재실행할 수 있습니다.
+
 ### 로컬 검증
 
 ```sh
@@ -130,8 +142,9 @@ npm test
 npm run build
 npm run test:desktop
 
-# UI만 브라우저에서 미리보기
+# 실제 웹 번역기 개발과 배포용 정적 빌드
 npm run dev:web
+npm run build:web
 
 # 소스 ZIP과 UTF-8 변경 파일 목록
 npm run package:source

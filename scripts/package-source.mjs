@@ -4,7 +4,7 @@ import yazl from 'yazl';
 import { relative, resolve } from 'node:path';
 const root = resolve('.');
 const output = resolve('artifacts');
-const ignored = new Set(['node_modules', 'dist', 'dist-electron', 'release', 'artifacts', '.git', '.DS_Store']);
+const ignored = new Set(['node_modules', 'dist', 'dist-web', 'dist-electron', 'release', 'artifacts', '.git', '.DS_Store']);
 async function collect(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -18,7 +18,7 @@ async function collect(directory) {
 await mkdir(output, { recursive: true });
 const files = (await collect(root)).sort();
 await writeFile(resolve(output, 'changed-files.txt'), files.join('\n') + '\n', 'utf8');
-const archive = resolve(output, 'mscw-chatter-source-0.2.1.zip');
+const archive = resolve(output, 'mscw-chatter-source-0.3.0.zip');
 const zip = new yazl.ZipFile();
 for (const file of files) zip.addFile(resolve(root, file), file);
 zip.addFile(resolve(output, 'changed-files.txt'), 'changed-files.txt');
