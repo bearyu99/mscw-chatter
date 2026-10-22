@@ -148,9 +148,11 @@ jobs:
               if (asset.state !== 'uploaded' || asset.size !== file.data.length || asset.digest !== `sha256:${file.hash}`) throw new Error(`Upload verification failed: ${file.name}`);
               core.info(`${file.hash}  ${file.name}`);
             }
-            const { data: published } = await github.rest.repos.updateRelease({
+            // An already-published release needs no metadata or target update.
+            // Keep its existing tag and avoid requesting unnecessary workflow-write access.
+            const published = release.draft ? (await github.rest.repos.updateRelease({
               ...repo, release_id: releaseId, target_commitish: process.env.SOURCE_SHA, draft: false, make_latest: 'true',
-            });
+            })).data : release;
             await core.summary.addHeading('Release published').addLink(published.name, published.html_url)
               .addRaw(`\n\nSource: ${process.env.SOURCE_SHA}\n\n`)
               .addCodeBlock(sums.toString('utf8'), 'text').write();
