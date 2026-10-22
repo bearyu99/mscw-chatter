@@ -142,6 +142,10 @@ Release 게시가 성공하면 같은 빌드의 검증된 웹 산출물을 GitHu
 
 저장소의 **Settings → Pages → Source**는 **GitHub Actions**로 설정합니다. Pages만 다시 배포할 때는 **Deploy released web app to Pages**를 수동 실행하고 Release 태그와 성공한 빌드 ID를 입력하세요. 비워 두면 최신 안정 버전과 일치하는 빌드를 찾습니다. 산출물이 만료됐다면 해당 소스를 다시 빌드해야 합니다. Release 게시 후 Pages 배포가 실패해도 이미 게시한 Release를 삭제하지 않으며, Pages 작업만 재실행할 수 있습니다.
 
+릴리즈 화면의 **Publish release**는 실행파일을 자동으로 첨부하지 않습니다. 이미 게시한 최신 안정 버전에 파일이 빠졌다면 **Publish desktop release**를 main에서 실행하고, 해당 태그와 일치하는 성공한 빌드 ID를 입력하세요. 기존 본문과 태그를 유지하면서 누락된 파일을 첨부하고 Pages를 배포합니다. 같은 이름의 기존 파일은 크기와 SHA-256이 일치할 때만 유지하며, 다른 파일로 덮어쓰지 않습니다.
+
+Pages 환경에서 main만 배포하도록 보호한 경우 태그에서 시작한 배포는 거부됩니다. 보호 규칙을 바꾸지 말고 **Publish desktop release** 또는 **Deploy released web app to Pages**를 **main**에서 실행하세요.
+
 ### 로컬 검증
 
 ```sh

@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       tag:
-        description: Existing draft release tag (for example v0.1.0)
+        description: Draft or latest published release tag (for example v0.4.0)
         required: true
         type: string
 
@@ -31,7 +31,7 @@ jobs:
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       RELEASE_TAG: ${{ inputs.tag }}
     steps:
-      - name: Verify build provenance and draft release
+      - name: Verify build provenance and release
         id: source
         uses: actions/github-script@v8
         with:
@@ -54,7 +54,11 @@ jobs:
             if (`v${version}` !== tag) throw new Error('Tag differs from the built package version');
             const releases = await github.paginate(github.rest.repos.listReleases, { ...repo, per_page: 100 });
             const release = releases.find(item => item.tag_name === tag);
-            if (!release?.draft || !release.body?.trim()) throw new Error('Prepare a draft release with notes first');
+            if (!release || release.prerelease || !release.body?.trim()) throw new Error('Prepare release notes for a stable release first');
+            if (!release.draft) {
+              const { data: latest } = await github.rest.repos.getLatestRelease(repo);
+              if (latest.id !== release.id) throw new Error('Only the latest published stable release can be repaired');
+            }
             try {
               const { data: ref } = await github.rest.git.getRef({ ...repo, ref: `tags/${tag}` });
               let object = ref.object;
@@ -123,7 +127,11 @@ jobs:
             const sums = Buffer.from(files.map(file => `${file.hash}  ${file.name}\n`).join(''), 'utf8');
             files.push({ name: 'SHA256SUMS.txt', type: 'text/plain', data: sums, hash: crypto.createHash('sha256').update(sums).digest('hex') });
             let { data: release } = await github.rest.repos.getRelease({ ...repo, release_id: releaseId });
-            if (!release.draft || release.tag_name !== process.env.RELEASE_TAG) throw new Error('Draft changed during publication');
+            if (release.prerelease || release.tag_name !== process.env.RELEASE_TAG) throw new Error('Release changed during publication');
+            if (!release.draft) {
+              const { data: latest } = await github.rest.repos.getLatestRelease(repo);
+              if (latest.id !== releaseId) throw new Error('A newer release was published; refusing to modify this release');
+            }
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...repo, release_id: releaseId, per_page: 100 });
             for (const file of files) {
               let asset = assets.find(item => item.name === file.name);
