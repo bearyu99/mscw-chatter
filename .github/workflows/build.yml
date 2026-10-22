@@ -10,8 +10,22 @@ jobs:
         include:
           - os: windows-2022
             script: dist:win
-          - os: macos-14
-            script: dist:mac
+            name: Windows-x64
+            package-dir: release/win-unpacked
+            executable: release/win-unpacked/mscw-chatter.exe
+            archive: win-x64-portable.exe
+          - os: macos-15
+            script: dist:mac:arm64
+            name: macOS-arm64
+            package-dir: release/mac-arm64/mscw-chatter.app
+            executable: release/mac-arm64/mscw-chatter.app/Contents/MacOS/mscw-chatter
+            archive: mac-arm64.zip
+          - os: macos-15-intel
+            script: dist:mac:x64
+            name: macOS-x64
+            package-dir: release/mac/mscw-chatter.app
+            executable: release/mac/mscw-chatter.app/Contents/MacOS/mscw-chatter
+            archive: mac-x64.zip
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -24,21 +38,21 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run ${{ matrix.script }} -- --publish never
-      - name: Test packaged macOS app
-        if: runner.os == 'macOS'
+      - name: Test packaged app on its native architecture
         env:
-          MSCW_TEST_EXECUTABLE: ${{ github.workspace }}/release/mac-universal/mscw-chatter.app/Contents/MacOS/mscw-chatter
+          MSCW_TEST_EXECUTABLE: ${{ github.workspace }}/${{ matrix.executable }}
         run: npm run test:desktop
-      - name: Test packaged Windows app
-        if: runner.os == 'Windows'
+      - name: Measure package size and verify bundled languages
         env:
-          MSCW_TEST_EXECUTABLE: ${{ github.workspace }}/release/win-unpacked/mscw-chatter.exe
-        run: npm run test:desktop
+          MSCW_PACKAGE_DIR: ${{ matrix.package-dir }}
+          MSCW_PACKAGE_ARCHIVE: ${{ matrix.archive }}
+        run: npm run measure:package
       - uses: actions/upload-artifact@v4
         with:
-          name: mscw-chatter-${{ runner.os }}
+          name: mscw-chatter-${{ matrix.name }}
+          compression-level: 0
           path: |
             release/*.exe
-            release/*.dmg
             release/*.zip
+            artifacts/package-size.json
           if-no-files-found: error

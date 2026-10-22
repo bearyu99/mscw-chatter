@@ -1,7 +1,7 @@
 {
   "name": "mscw-chatter",
   "productName": "글클메 채팅 번역기",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "글로벌 클래식 메이플을 위한 한국어·영어 클립보드 번역기",
   "author": "mscw-chatter",
@@ -16,10 +16,15 @@
     "test": "vitest run",
     "test:desktop": "node scripts/smoke-desktop.mjs",
     "check": "tsc --noEmit",
-    "dist:mac": "npm run build && electron-builder --mac --universal",
+    "dist:mac": "npm run build && electron-builder --mac zip",
     "dist:win": "npm run build && electron-builder --win --x64",
     "package:mac": "npm run build && electron-builder --mac --dir",
-    "package:source": "node scripts/package-source.mjs"
+    "package:source": "node scripts/package-source.mjs",
+    "dist:mac:arm64": "npm run build && electron-builder --mac zip --arm64",
+    "dist:mac:x64": "npm run build && electron-builder --mac zip --x64",
+    "dist:mac:universal": "npm run build && electron-builder --mac zip --universal",
+    "dist:win:setup": "npm run build && electron-builder --win nsis --x64",
+    "measure:package": "node scripts/measure-package.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -59,7 +64,6 @@
     "asar": true,
     "mac": {
       "target": [
-        "dmg",
         "zip"
       ],
       "category": "public.app-category.utilities",
@@ -69,14 +73,21 @@
         "LSMinimumSystemVersion": "13.0",
         "CFBundleDisplayName": "글클메 채팅 번역기"
       },
-      "identity": "-"
+      "identity": "-",
+      "electronLanguages": [
+        "en",
+        "ko"
+      ]
     },
     "win": {
       "target": [
-        "nsis",
         "portable"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "electronLanguages": [
+        "en-US",
+        "ko"
+      ]
     },
     "nsis": {
       "artifactName": "mscw-chatter-${version}-win-${arch}-setup.${ext}",
