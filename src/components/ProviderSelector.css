@@ -1,0 +1,68 @@
+/* Hallmark · component: provider selector · genre: modern-minimal · theme: existing Coral
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * pre-emit critique: P5 H5 E4 S5 R5 V4
+ */
+.provider-status.provider-picker { display: inline-flex; flex: 0 0 auto; min-width: 0; }
+.provider-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: max-content;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-transparent);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+.provider-picker-indicator { width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.provider-picker-name { font-weight: 450; }
+.provider-picker-state, .provider-picker-arrow { color: var(--color-muted); }
+@media (hover: hover) {
+  .provider-picker-trigger:not(:disabled):hover, .provider-picker-menu button:not(:disabled):hover { background: var(--color-hover); }
+}
+.provider-picker-trigger.is-hover { background: var(--color-hover); }
+.provider-picker-trigger:focus-visible, .provider-picker-trigger.is-focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.provider-picker-trigger:not(:disabled):active, .provider-picker-trigger.is-active { background: var(--color-line); transform: none; }
+.provider-picker-trigger:disabled:not([data-state="loading"]) { opacity: .5; cursor: not-allowed; }
+.provider-picker-trigger[data-state="loading"] { opacity: 1; cursor: wait; }
+.provider-picker-trigger[data-state="loading"] .provider-picker-indicator { color: var(--color-muted); }
+.provider-picker-trigger[data-state="error"] { box-shadow: inset 0 0 0 1px var(--color-danger-line); }
+.provider-picker-trigger[data-state="error"] .provider-picker-indicator, .provider-picker-trigger[data-state="error"] .provider-picker-state { color: var(--color-danger); }
+.provider-picker-trigger[data-state="success"] .provider-picker-indicator { color: var(--color-green); }
+.provider-picker-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 232px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+  padding: var(--space-xs);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 8px 24px var(--color-shadow-modal);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+}
+.provider-picker-menu-label { padding: var(--space-sm); color: var(--color-muted); }
+.provider-picker-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); width: 100%; min-height: 44px; padding: 0 var(--space-sm); border-radius: var(--radius-sm); font: inherit; text-align: left; }
+.provider-picker-menu button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; background: var(--color-hover); }
+.provider-picker-menu button:not(:disabled):active { background: var(--color-line); transform: none; }
+.provider-picker-menu button:disabled { opacity: .5; cursor: not-allowed; }
+.provider-picker-menu-meta { display: inline-flex; align-items: center; color: var(--color-muted); white-space: nowrap; }
+.provider-picker-menu-divider { height: 1px; margin: var(--space-xs) 0; background: var(--color-line); }
+@media (prefers-reduced-motion: reduce) {
+  .provider-picker-trigger { transition: none; }
+  .provider-picker .spin { animation: none; }
+}

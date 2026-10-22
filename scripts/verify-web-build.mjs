@@ -9,7 +9,7 @@ async function inspect(directory) {
     if (entry.isSymbolicLink()) throw new Error('Symbolic links cannot be published');
     if (entry.isDirectory()) { await inspect(path); continue; }
     const name = relative(root, path).replaceAll('\\', '/');
-    if (!/^(index\.html|mark\.svg|assets\/[\w.-]+\.(js|css|woff2)|licenses\/[\w.-]+\.txt)$/.test(name)) {
+    if (!/^(index\.html|mark\.svg|logos\/(openai\.svg|anthropic\.svg|google\.png)|assets\/[\w.-]+\.(js|css|woff2)|licenses\/[\w.-]+\.txt)$/.test(name)) {
       throw new Error(`Unexpected public file: ${name}`);
     }
     if (!entry.isFile() || (await lstat(path)).size === 0) throw new Error(`Empty public file: ${name}`);

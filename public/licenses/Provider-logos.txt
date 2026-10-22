@@ -1,0 +1,18 @@
+Provider logos identify the user's selected API provider. All trademarks belong to
+their respective owners. Their use does not imply endorsement or partnership.
+The original artwork and proportions are preserved. No remote logo requests are
+made while the app is running.
+
+OpenAI Blossom: official brand guide artwork, retrieved 2026-10-22.
+The filled logo path is unchanged; surrounding guide lines and blank canvas are
+omitted for the icon viewport.
+https://openai.com/brand/
+https://images.ctfassets.net/kftzwdyauwt9/3hUGLn3ypllZ0oa01qOYVq/28e8188e6f11b84c3e876569d492734f/Blossom_Light.svg
+
+Anthropic lettermark: official website pinned-tab SVG, retrieved 2026-10-22.
+https://www.anthropic.com/images/icons/safari-pinned-tab.svg
+https://www.anthropic.com/
+
+Google G: official Google website image, retrieved 2026-10-22.
+https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png
+https://about.google/brand-resource-center/guidance/

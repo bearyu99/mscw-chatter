@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createWebApi } from '../src/web-api';
 import { DEFAULT_SETTINGS } from '../src/shared/defaults';
 import type { ProviderId } from '../src/shared/types';
@@ -9,7 +9,77 @@ function fixture(fetcher = vi.fn<typeof fetch>().mockImplementation(async () => 
   const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
   return { api: createWebApi({ version: 'test', fetcher, clipboard }), clipboard, fetcher };
 }
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('browser translation', () => {
+  it('keeps the current provider when a different provider has no stored key', async () => {
+    const { api } = fixture(); await api.saveProfile(profile()); await api.setMonitoring(true);
+    await expect(api.updateSettings({ provider: 'google' })).rejects.toThrow('API 키');
+    expect((await api.getSnapshot()).settings.provider).toBe('openai');
+    expect((await api.getSnapshot()).runtime.monitoring).toBe(true);
+  });
+  it('switches back to a saved provider without replacing its model or key', async () => {
+    const { api, fetcher } = fixture(vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'hello from Google' }] } }] })));
+    await api.saveProfile(profile('openai', 'saved-openai-fixture'));
+    await api.saveProfile({ ...profile('google', 'saved-google-fixture'), model: 'gemini-2.5-flash-lite' });
+    await api.updateSettings({ provider: 'openai' }); await api.setMonitoring(true);
+    const switched = await api.updateSettings({ provider: 'google' });
+    expect(switched.settings.provider).toBe('google'); expect(switched.runtime.monitoring).toBe(false);
+    expect(switched.settings.profiles.google.model).toBe('gemini-2.5-flash-lite');
+    await api.translate('안녕하세요');
+    expect(String(fetcher.mock.calls[0][0])).toContain('/gemini-2.5-flash-lite:generateContent');
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get('x-goog-api-key')).toBe('saved-google-fixture');
+    expect((await api.getSnapshot()).runtime.history[0]).toMatchObject({ provider: 'google', model: 'gemini-2.5-flash-lite', translated: 'hello from Google' });
+  });
+  it('does not stop monitoring when the selected provider stays the same', async () => {
+    const { api } = fixture(); await api.saveProfile(profile()); await api.setMonitoring(true);
+    expect((await api.updateSettings({ provider: 'openai' })).runtime.monitoring).toBe(true);
+  });
+  it('discards a late response from the previous provider after switching', async () => {
+    let finish!: (value: Response) => void;
+    const { api } = fixture(vi.fn<typeof fetch>().mockImplementation(() => new Promise(resolve => { finish = resolve; })));
+    await api.saveProfile(profile('google')); await api.saveProfile(profile());
+    const pending = api.translate('안녕하세요');
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    await api.updateSettings({ provider: 'google' }); finish(reply('stale OpenAI result')); await pending;
+    expect((await api.getSnapshot()).runtime.history).toEqual([]);
+    expect((await api.getSnapshot()).settings.provider).toBe('google');
+  });
+  it('clears keys on pagehide and allows reconnecting after a browser back-cache restore', async () => {
+    const lifecycle = new EventTarget(); vi.stubGlobal('window', lifecycle);
+    const { api } = fixture(); await api.saveProfile(profile());
+    lifecycle.dispatchEvent(new Event('pagehide'));
+    expect((await api.getSnapshot()).keys.openai).toBe(false);
+    lifecycle.dispatchEvent(new Event('pageshow')); await api.saveProfile(profile());
+    expect((await api.getSnapshot()).keys.openai).toBe(true);
+  });
+  it('does not restore a key if navigation happens while its identity is being computed', async () => {
+    const lifecycle = new EventTarget(); vi.stubGlobal('window', lifecycle);
+    let complete!: (value: ArrayBuffer) => void;
+    vi.spyOn(globalThis.crypto.subtle, 'digest').mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const { api } = fixture(), pending = api.saveProfile(profile());
+    lifecycle.dispatchEvent(new Event('pagehide')); complete(new ArrayBuffer(32));
+    await expect(pending).rejects.toThrow('페이지'); expect((await api.getSnapshot()).keys.openai).toBe(false);
+  });
+  it('includes connection tests in per-key estimates and retains totals when history clears', async () => {
+    const { api } = fixture(vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ model: 'gpt-4.1-mini', usage: { prompt_tokens: 1000, completion_tokens: 500 }, choices: [{ finish_reason: 'stop', message: { content: 'hello' } }] })));
+    await api.testConnection(profile()); await api.saveProfile(profile());
+    expect((await api.getSnapshot()).usage.openai.requests).toBe(1);
+    await api.translate('안녕'); await api.clearHistory();
+    expect((await api.getSnapshot()).usage.openai).toMatchObject({ requests: 2, inputTokens: 2000, outputTokens: 1000 });
+    expect((await api.getSnapshot()).usage.openai.estimatedUsd).toBeCloseTo(0.0024, 12);
+    await api.saveProfile(profile('openai', 'different-fixture-key'));
+    expect((await api.getSnapshot()).usage.openai.requests).toBe(0);
+    await api.saveProfile(profile()); expect((await api.getSnapshot()).usage.openai.requests).toBe(2);
+    expect((await fixture().api.getSnapshot()).usage.openai.requests).toBe(0);
+    const snapshot = JSON.stringify(await api.getSnapshot());
+    expect(snapshot).not.toContain('fixture-key'); expect(snapshot).not.toMatch(/[a-f0-9]{64}/);
+  });
+  it('validates changed shortcuts without changing existing settings on errors', async () => {
+    const { api } = fixture(); await api.updateSettings({ translateShortcut: 'Alt+Enter' });
+    await expect(api.updateSettings({ translateShortcut: 'Enter' })).rejects.toThrow();
+    await expect(api.updateSettings({ translateShortcut: DEFAULT_SETTINGS.monitorShortcut })).rejects.toThrow('서로 다른');
+    expect((await api.getSnapshot()).settings.translateShortcut).toBe('Alt+Enter');
+  });
   it('keeps keys out of snapshots and clears them for a new tab instance', async () => {
     const { api } = fixture(); await api.saveProfile(profile());
     const snapshot = await api.getSnapshot();

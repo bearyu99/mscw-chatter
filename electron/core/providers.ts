@@ -1,5 +1,6 @@
 import type { ProfileInput, ProviderId, ProviderProfile, ResolvedDirection } from '../../src/shared/types';
 import { buildPrompt } from './prompt';
+import { parseUsage, type UsageEvent } from '../../src/shared/usage';
 
 export interface TranslationRequest {
   text: string; direction: ResolvedDirection; provider: ProviderId; profile: ProviderProfile;
@@ -39,6 +40,7 @@ export function buildRequest(provider: ProviderId, profile: ProviderProfile, api
       headers['x-api-key'] = apiKey;
       headers['anthropic-version'] = '2023-06-01';
       body = { model: profile.model, max_tokens: 2048, system, messages: [{ role: 'user', content: user }], stream: false };
+      if (profile.model === 'claude-haiku-5-5') { body.output_config = { effort: 'low' }; body.thinking = { type: 'disabled' }; }
       break;
     case 'google':
       url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(profile.model)}:generateContent`;
@@ -60,7 +62,8 @@ export function buildRequest(provider: ProviderId, profile: ProviderProfile, api
     default:
       url = 'https://api.openai.com/v1/chat/completions';
       headers.Authorization = `Bearer ${apiKey}`;
-      body = { model: profile.model, messages, stream: false, max_completion_tokens: 2048, store: false };
+      body = { model: profile.model, messages, stream: false, max_completion_tokens: 2048, store: false, service_tier: 'default' };
+      if (profile.model === 'gpt-6-luna') body.reasoning_effort = 'none';
   }
   return { url, headers, body };
 }
@@ -115,16 +118,26 @@ async function readJson(response: Response): Promise<unknown> {
   catch { throw new Error('서버 응답 형식이 올바르지 않아요. API 형식과 주소를 확인해 주세요.'); }
 }
 
-export async function translateWithProvider(input: TranslationRequest, fetcher: Fetcher = fetch): Promise<ProviderResult> {
+export async function translateWithProvider(input: TranslationRequest, fetcher: Fetcher = fetch, onUsage?: (event: UsageEvent) => void | Promise<void>): Promise<ProviderResult> {
   if (input.provider !== 'local' && !input.apiKey) throw new Error('설정에서 선택한 제공자의 API 키를 먼저 저장해 주세요.');
   const prompt = buildPrompt(input.text, input.direction, input.glossaryEnabled);
   const profile = validateProfile({ ...input.profile, provider: input.provider });
   const request = buildRequest(input.provider, profile, input.apiKey, prompt.system, prompt.user);
   const timeout = AbortSignal.timeout(input.provider === 'local' ? 60000 : 25000);
   const signal = AbortSignal.any([input.signal, timeout]);
+  let reported = false;
+  const report = async (data: unknown) => {
+    reported = true;
+    if (input.provider === 'local' || !onUsage) return;
+    const responseModel = record(data)[input.provider === 'google' ? 'modelVersion' : 'model'];
+    await onUsage({ provider: input.provider, model: typeof responseModel === 'string' ? responseModel : profile.model, usage: parseUsage(input.provider, data), at: Date.now() });
+  };
+  signal.throwIfAborted();
   try {
     const response = await fetcher(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify(request.body), redirect: 'error', signal });
     if (!response.ok) {
+      // Rejected requests have no token usage; network/5xx ambiguity is recorded separately.
+      if (response.status < 500) reported = true;
       await response.body?.cancel();
       if ([401, 403].includes(response.status)) throw new Error('API 키 또는 모델 접근 권한을 확인해 주세요.');
       if (response.status === 429) throw new Error('API 사용량 또는 요청 한도에 도달했어요. 잠시 후 다시 시도해 주세요.');
@@ -133,6 +146,8 @@ export async function translateWithProvider(input: TranslationRequest, fetcher: 
       throw new Error(`번역 서버에 일시적인 문제가 있어요. 잠시 후 다시 시도해 주세요. (${response.status})`);
     }
     const data = await readJson(response);
+    // Count returned usage even if text is truncated, refused, or canceled immediately afterwards.
+    await report(data);
     signal.throwIfAborted();
     return { text: parseResponse(input.provider, profile.localApi, data), terms: prompt.terms };
   } catch (error) {
@@ -142,5 +157,5 @@ export async function translateWithProvider(input: TranslationRequest, fetcher: 
       throw new Error(input.provider === 'local' ? '로컬 서버에 연결할 수 없어요. 서버 실행 여부와 주소를 확인해 주세요.' : '번역 서버에 연결할 수 없어요. 인터넷 연결을 확인해 주세요.');
     }
     throw error;
-  }
+  } finally { if (!reported) await report(null); }
 }

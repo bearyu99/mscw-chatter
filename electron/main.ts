@@ -2,8 +2,10 @@ import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeIma
 import type { IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import type { ProfileInput, SettingsPatch, Snapshot } from '../src/shared/types';
-import { GLOSSARY_URL } from '../src/shared/defaults';
-import { ConfigStore } from './core/config';
+import { EXTERNAL_URLS } from '../src/shared/usage';
+import { UsageStore, keyIdentity } from './core/usage-store';
+import { ConfigStore, validateSettingsPatch } from './core/config';
+import { ShortcutManager } from './core/shortcuts';
 import { TranslationController, type ClipboardPort } from './core/controller';
 import { translateWithProvider, validateProfile } from './core/providers';
 import { WindowMode, WINDOW_SIZES } from './core/window-mode';
@@ -17,7 +19,8 @@ let quitting = false;
 let store: ConfigStore;
 let controller: TranslationController;
 let pollTimer: NodeJS.Timeout | undefined;
-let shortcutAvailable = false;
+let shortcuts: ShortcutManager;
+let usageStore: UsageStore;
 const devUrl = !app.isPackaged && process.env.MSCW_DEV_URL === 'http://127.0.0.1:5173' ? process.env.MSCW_DEV_URL : undefined;
 const iconPath = join(app.getAppPath(), 'build', 'icon.png');
 
@@ -29,7 +32,12 @@ const nativeClipboard: ClipboardPort = {
 
 function snapshot(): Snapshot {
   const keys = store.keyStatus();
-  return { settings: store.settings, runtime: structuredClone(controller.state), keys, platform: process.platform, version: app.getVersion(), shortcutAvailable, native: true, storageWarning: store.warning };
+  const usage = Object.fromEntries((['openai', 'anthropic', 'google', 'local'] as const).map(provider => [provider, usageStore.ledger.summary(provider, keyIdentity(store.getKey(provider)))])) as Snapshot['usage'];
+  return { settings: store.settings, runtime: structuredClone(controller.state), keys, usage, usageWarning: usageStore.warning, platform: process.platform, version: app.getVersion(), shortcutAvailable: shortcuts?.available ?? false, native: true, storageWarning: store.warning };
+}
+async function trackedTranslate(input: Parameters<typeof translateWithProvider>[0]) {
+  const identity = keyIdentity(input.apiKey);
+  return translateWithProvider(input, fetch, async event => { await usageStore.record(identity, event); changed(); });
 }
 function changed() {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('mscw:changed', snapshot());
@@ -86,9 +94,13 @@ function handle(channel: string, fn: (...args: any[]) => unknown) {
 function registerHandlers() {
   handle('mscw:snapshot', () => snapshot());
   handle('mscw:settings', async (patch: SettingsPatch) => {
-    if (patch && typeof patch === 'object' && 'provider' in patch) await controller.setMonitoring(false);
+    patch = validateSettingsPatch(patch);
+    if (patch.provider && patch.provider !== store.settings.provider) {
+      if (patch.provider !== 'local' && !store.getKey(patch.provider)) throw new Error('설정에서 이 제공자의 API 키를 먼저 저장해 주세요.');
+      await controller.setMonitoring(false);
+    }
     else if (patch && typeof patch === 'object' && ['direction', 'glossaryEnabled', 'autoCopy'].some(key => key in patch)) controller.cancel(false);
-    await store.updateSettings(patch);
+    await shortcuts.update(patch);
     mainWindow?.setAlwaysOnTop(store.settings.alwaysOnTop);
     if (mainWindow?.isFullScreen()) {
       if ('miniMode' in patch) {
@@ -110,7 +122,7 @@ function registerHandlers() {
     const profile = validateProfile(input);
     if (input.apiKey !== undefined && (typeof input.apiKey !== 'string' || input.apiKey.length > 4096 || /[\r\n\0]/.test(input.apiKey))) throw new Error('API 키 형식을 확인해 주세요.');
     const key = input.removeKey ? '' : input.apiKey?.trim() || store.getKey(input.provider);
-    await translateWithProvider({ provider: input.provider, profile, apiKey: key, text: '안녕하세요', direction: 'ko-en', glossaryEnabled: false, signal: new AbortController().signal });
+    await trackedTranslate({ provider: input.provider, profile, apiKey: key, text: '안녕하세요', direction: 'ko-en', glossaryEnabled: false, signal: new AbortController().signal });
     return { message: '연결되었어요. 이 모델로 번역할 수 있어요.' };
   });
   handle('mscw:monitor', async (enabled: boolean) => { if (typeof enabled !== 'boolean') throw new Error('감시 상태가 올바르지 않아요.'); await controller.setMonitoring(enabled); return snapshot(); });
@@ -118,7 +130,7 @@ function registerHandlers() {
   handle('mscw:cancel', () => controller.cancel());
   handle('mscw:copy', (id: string, original = false) => { if (typeof id !== 'string' || typeof original !== 'boolean') throw new Error('복사 요청을 확인해 주세요.'); return controller.copyEntry(id, original); });
   handle('mscw:clear', () => controller.clearHistory());
-  const links: Record<string, string> = { glossary: GLOSSARY_URL, openai: 'https://platform.openai.com/api-keys', anthropic: 'https://platform.claude.com/settings/keys', google: 'https://aistudio.google.com/apikey', ollama: 'https://ollama.com/download' };
+  const links: Record<string, string> = EXTERNAL_URLS;
   handle('mscw:external', async (target: unknown) => { if (typeof target !== 'string' || !Object.hasOwn(links, target)) throw new Error('허용되지 않은 링크예요.'); await shell.openExternal(links[target]); });
 }
 
@@ -133,7 +145,13 @@ else {
       decrypt: value => safeStorage.decryptString(Buffer.from(value, 'base64')),
     });
     await store.load();
-    controller = new TranslationController({ clipboard: nativeClipboard, settings: () => store.settings, getKey: provider => store.getKey(provider), onChange: changed });
+    usageStore = new UsageStore(join(app.getPath('userData'), 'usage-totals.json'));
+    await usageStore.load();
+    controller = new TranslationController({ clipboard: nativeClipboard, settings: () => store.settings, getKey: provider => store.getKey(provider), translate: trackedTranslate, onChange: changed });
+    shortcuts = new ShortcutManager(globalShortcut, store, () => {
+      void controller.setMonitoring(!controller.state.monitoring).catch(error => { controller.state.error = error.message; changed(); showWindow(); });
+    }, process.platform);
+    shortcuts.start();
     registerHandlers();
     const trayImage = nativeImage.createFromPath(iconPath);
     if (!trayImage.isEmpty()) {
@@ -141,9 +159,6 @@ else {
       tray.on('click', showWindow);
       updateTray();
     }
-    shortcutAvailable = globalShortcut.register('CommandOrControl+Shift+Space', () => {
-      void controller.setMonitoring(!controller.state.monitoring).catch(error => { controller.state.error = error.message; changed(); showWindow(); });
-    });
     createWindow();
     pollTimer = setInterval(() => { void controller.poll(); }, 250);
     app.on('activate', showWindow);

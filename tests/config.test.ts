@@ -11,6 +11,31 @@ async function setup() { const directory = await mkdtemp(join(tmpdir(), 'mscw-co
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))); });
 
 describe('configuration and credentials', () => {
+  it('preserves both saved keys and models when changing provider and restarting', async () => {
+    const { path } = await setup(); const store = new ConfigStore(path, fakeCrypto);
+    await store.saveProfile({ ...DEFAULT_SETTINGS.profiles.openai, provider: 'openai', apiKey: 'saved-openai-fixture' });
+    await store.saveProfile({ ...DEFAULT_SETTINGS.profiles.google, model: 'gemini-2.5-flash-lite', provider: 'google', apiKey: 'saved-google-fixture' });
+    const before = JSON.parse(await readFile(path, 'utf8')).encryptedKeys;
+    await store.updateSettings({ provider: 'openai' }); await store.updateSettings({ provider: 'google' });
+    const restored = new ConfigStore(path, fakeCrypto); await restored.load();
+    expect(restored.settings.provider).toBe('google');
+    expect(restored.settings.profiles.google.model).toBe('gemini-2.5-flash-lite');
+    expect(restored.getKey('google')).toBe('saved-google-fixture');
+    expect(restored.getKey('openai')).toBe('saved-openai-fixture');
+    expect(JSON.parse(await readFile(path, 'utf8')).encryptedKeys).toEqual(before);
+  });
+  it('adds backward-compatible shortcut defaults and persists custom bindings', async () => {
+    const { path } = await setup();
+    const { monitorShortcut: _monitor, translateShortcut: _translate, ...settings } = structuredClone(DEFAULT_SETTINGS);
+    await writeFile(path, JSON.stringify({ version: 1, settings, encryptedKeys: {} }));
+    const store = new ConfigStore(path, fakeCrypto); await store.load();
+    expect(store.settings.monitorShortcut).toBe(DEFAULT_SETTINGS.monitorShortcut); expect(store.warning).toBeNull();
+    await store.updateSettings({ monitorShortcut: 'Alt+Shift+F9', translateShortcut: 'Alt+Enter' });
+    const restored = new ConfigStore(path, fakeCrypto); await restored.load();
+    expect(restored.settings).toMatchObject({ monitorShortcut: 'Alt+Shift+F9', translateShortcut: 'Alt+Enter' });
+    await expect(restored.updateSettings({ translateShortcut: 'Alt+Shift+F9' })).rejects.toThrow('서로 다른');
+    expect(restored.settings.translateShortcut).toBe('Alt+Enter');
+  });
   it('uses safe defaults on first launch', async () => { const { path } = await setup(); const store = new ConfigStore(path, fakeCrypto); await store.load(); expect(store.settings.glossaryEnabled).toBe(true); expect(store.keyStatus().openai).toBe(false); });
   it('persists only encrypted keys and reloads provider settings', async () => {
     const { path } = await setup(); const store = new ConfigStore(path, fakeCrypto);

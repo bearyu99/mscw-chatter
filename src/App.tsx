@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from 'r
 import { ArrowDown, BookOpen, Check, ChevronRight, CircleHelp, Clipboard, Copy, CornerDownLeft, History, Keyboard, Languages, Leaf, LoaderCircle, Minimize2, Monitor, Pause, Pin, Play, Settings2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import { MAX_INPUT_LENGTH, PROVIDERS } from './shared/defaults';
-import type { Direction, Page, Snapshot, TranslationEntry } from './shared/types';
+import type { Direction, Page, ProviderId, Snapshot, TranslationEntry } from './shared/types';
 import { Toggle } from './components/Toggle';
 import { Modal } from './components/Modal';
 import SettingsPage from './pages/SettingsPage';
 import GlossaryPage from './pages/GlossaryPage';
 import MiniTranslator from './components/MiniTranslator';
+import ProviderSelector from './components/ProviderSelector';
+import { formatShortcut, matchesShortcut } from './shared/shortcuts';
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -20,6 +22,8 @@ export default function App() {
   const [modePending, setModePending] = useState(false);
   const [monitorPending, setMonitorPending] = useState(false);
   const [copyPending, setCopyPending] = useState(false);
+  const [providerPending, setProviderPending] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
   const miniInput = useRef<HTMLTextAreaElement>(null);
   const miniButton = useRef<HTMLButtonElement>(null);
   const previousMini = useRef<boolean | undefined>(undefined);
@@ -52,6 +56,19 @@ export default function App() {
   const title = { translator: '실시간 번역', glossary: '게임 용어집', settings: '설정' }[page];
   const modifier = snapshot.platform === 'darwin' ? '⌘' : 'Ctrl';
   const update = (patch: Parameters<typeof api.updateSettings>[0]) => act(async () => { setSnapshot(await api.updateSettings(patch)); });
+  const changeProvider = async (next: ProviderId) => {
+    if (providerPending || profileBusy) return false;
+    if (next === settings.provider) return true;
+    setProviderPending(true);
+    try {
+      const result = await api.updateSettings({ provider: next });
+      setSnapshot(result);
+      const name = PROVIDERS.find(item => item.id === next)!.name;
+      setMessage(`${name}로 변경했어요.${runtime.monitoring ? ' 자동 번역을 다시 켜 주세요.' : ''}`);
+      return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'AI 제공자를 변경하지 못했어요.'); return false; }
+    finally { setProviderPending(false); }
+  };
   const setMiniMode = async (enabled: boolean) => {
     if (modePending) return false;
     setModePending(true);
@@ -101,7 +118,7 @@ export default function App() {
     onRestore={() => void setMiniMode(false)} modePending={modePending} busy={busy} entry={displayEntry}
     error={message || runtime.error || snapshot.storageWarning} notice={runtime.notice || (!snapshot.native ? '웹: 원문 창에 붙여넣으면 자동 번역해요.' : null)}
     copied={!!displayEntry && copyFeedback === displayEntry.id} copyPending={copyPending} autoCopy={settings.autoCopy}
-    modifier={modifier} onTranslate={() => void translate()} onCancel={() => void act(() => api.cancelTranslation())}
+    modifier={modifier} translateShortcut={settings.translateShortcut} platform={snapshot.platform} onTranslate={() => void translate()} onCancel={() => void act(() => api.cancelTranslation())}
     onCopy={() => { if (displayEntry) void copy(displayEntry); }}
   />;
 
@@ -127,7 +144,7 @@ export default function App() {
     <div className="workspace">
       <header className="topbar">
         <div className="breadcrumb"><span>워크스페이스</span><ChevronRight size={13} /><strong>{title}</strong></div>
-        <div className="topbar-actions"><button className="provider-status" onClick={() => setPage('settings')}><span className={`status-dot ${isReady ? 'ready' : 'subtle'}`} />{provider.name}<span className="provider-status-text">{isReady ? '선택됨' : '연결 필요'}</span><ChevronRight size={13} /></button>
+        <div className="topbar-actions"><ProviderSelector snapshot={snapshot} pending={providerPending} disabled={profileBusy} onChange={value => void changeProvider(value)} onManage={() => setPage('settings')} />
           <span className="topbar-separator" />
           <button ref={miniButton} className="icon-button mini-enter-button" title="미니 화면으로 전환" aria-label="미니 화면으로 전환" disabled={modePending} onClick={() => void setMiniMode(true)}><Minimize2 size={17} aria-hidden="true" /><span>미니 화면</span></button>
           {snapshot.native && <button className={`icon-button ${settings.alwaysOnTop ? 'is-pinned' : ''}`} title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed={settings.alwaysOnTop} onClick={() => void update({ alwaysOnTop: !settings.alwaysOnTop })}><Pin size={17} /></button>}
@@ -153,8 +170,8 @@ export default function App() {
               <div className="editor-toolbar"><div className="language-switch" role="group" aria-label="번역 방향">{([{ value: 'auto', label: '자동 감지' }, { value: 'ko-en', label: '한 → 영' }, { value: 'en-ko', label: '영 → 한' }] as { value: Direction; label: string }[]).map(item => <button key={item.value} aria-pressed={settings.direction === item.value} className={settings.direction === item.value ? 'active' : ''} onClick={() => void update({ direction: item.value })}>{item.value === 'auto' && <Languages size={14} />}{item.label}</button>)}</div><span className="editor-toolbar-meta"><span className="status-dot" />{busy ? '번역 중' : runtime.monitoring ? '복사 대기 중' : '직접 입력 가능'}</span></div>
 
               <div className="source-editor"><div className="editor-label"><label htmlFor="chat-input">원문 <span>{busy ? (/[\p{Script=Hangul}]/u.test(runtime.pendingText ?? '') ? '한국어' : '영어') : '입력'}</span></label><button className="text-action" disabled={!text} onClick={() => setText('')}>지우기</button></div>
-                <textarea id="chat-input" onPaste={pasted} aria-label="번역할 채팅" placeholder={'번역할 문장을 입력하거나 붙여넣어 주세요.'} value={busy && runtime.pendingText ? runtime.pendingText : text} readOnly={busy} maxLength={MAX_INPUT_LENGTH} onChange={event => setText(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); translate(); } }} />
-                <div className="editor-bottom"><span className="character-count">{(busy ? runtime.pendingText?.length ?? 0 : text.length).toLocaleString()} <span>/ {MAX_INPUT_LENGTH.toLocaleString()}</span></span>{busy ? <button className="button compact secondary" onClick={() => void act(() => api.cancelTranslation())}><X size={14} />취소</button> : <button className="button compact dark" disabled={!text.trim()} onClick={translate}>번역하기 <CornerDownLeft size={14} /><kbd>{modifier} ↵</kbd></button>}</div>
+                <textarea id="chat-input" onPaste={pasted} aria-label="번역할 채팅" placeholder={'번역할 문장을 입력하거나 붙여넣어 주세요.'} value={busy && runtime.pendingText ? runtime.pendingText : text} readOnly={busy} maxLength={MAX_INPUT_LENGTH} onChange={event => setText(event.target.value)} onKeyDown={event => { if (!event.nativeEvent.isComposing && matchesShortcut(event.nativeEvent, settings.translateShortcut, snapshot.platform)) { event.preventDefault(); translate(); } }} />
+                <div className="editor-bottom"><span className="character-count">{(busy ? runtime.pendingText?.length ?? 0 : text.length).toLocaleString()} <span>/ {MAX_INPUT_LENGTH.toLocaleString()}</span></span>{busy ? <button className="button compact secondary" onClick={() => void act(() => api.cancelTranslation())}><X size={14} />취소</button> : <button className="button compact dark" disabled={!text.trim()} onClick={translate}>번역하기 <CornerDownLeft size={14} /><kbd>{formatShortcut(settings.translateShortcut, snapshot.platform)}</kbd></button>}</div>
               </div>
 
               <div className="editor-divider"><span><ArrowDown size={15} /></span></div>
@@ -174,10 +191,10 @@ export default function App() {
           <aside className="tips-column" aria-label="사용 안내">
             <section className="howto-card"><div className="section-heading"><h2>대화가 쉬워지는 세 단계</h2><Keyboard size={17} /></div><ol className="steps"><li><span className="step-number">1</span><div><strong>{snapshot.native ? '문장을 복사하세요' : '원문을 붙여넣으세요'}</strong><p>{snapshot.native ? '번역할 글자를 선택하고' : '원문 창에 문장을 입력하고'}</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>{snapshot.native ? 'C' : 'V'}</kbd></div></div></li><li><span className="step-number">2</span><div><strong>잠시만 기다려 주세요</strong><p>{snapshot.native ? <>선택한 AI가 문맥에 맞게<br />번역하고 자동으로 복사해요.</> : <>번역하기를 누른 뒤<br />결과의 복사 버튼을 누르세요.</>}</p></div></li><li><span className="step-number">3</span><div><strong>바로 붙여넣으세요</strong><p>게임 채팅창에서</p><div className="key-combo"><kbd>{modifier}</kbd><span>+</span><kbd>V</kbd></div></div></li></ol><div className="howto-note"><ShieldCheck size={15} /><span>{snapshot.native ? <>자동 번역을 켜 둔 동안에는<br />복사한 텍스트가 선택한 AI로 전송돼요.</> : <>붙여넣기 자동 번역을 켜면<br />원문 창에 붙여넣은 문장만 전송돼요.</>}</span></div></section>
             <section className="example-card"><div className="example-head"><span className="status-dot" /><h2>이런 대화도 자연스럽게</h2><span>예시</span></div><div className="example-original">커파 같이 하실 분?<br />힐러 한 분 구해요!</div><div className="example-arrow"><ArrowDown size={16} /><span>게임 용어집 사용</span></div><div className="example-translation">LFM KPQ!<br />Need 1 healer.</div><div className="example-foot"><BookOpen size={13} /><span>커파 → KPQ</span></div></section>
-            <div className="shortcut-tip"><Keyboard size={16} /><div><strong>게임 중에도 간편하게</strong><p>{snapshot.shortcutAvailable ? <><kbd>{modifier} ⇧ Space</kbd><br />자동 번역 켜기 / 끄기</> : snapshot.native ? '트레이 아이콘에서 자동 번역을 켜고 끌 수 있어요.' : '데스크톱 앱에서 단축키로 자동 번역을 켜고 끌 수 있어요.'}</p></div></div>
+            <div className="shortcut-tip"><Keyboard size={16} /><div><strong>게임 중에도 간편하게</strong><p>{snapshot.shortcutAvailable ? <><kbd>{formatShortcut(settings.monitorShortcut, snapshot.platform)}</kbd><br />자동 번역 켜기 / 끄기</> : snapshot.native ? '트레이 아이콘에서 자동 번역을 켜고 끌 수 있어요.' : '데스크톱 앱에서 단축키로 자동 번역을 켜고 끌 수 있어요.'}</p></div></div>
           </aside></div>
           <footer className="workspace-footer"><span><ShieldCheck size={13} />번역 기록은 이 세션에만 보관해요.</span><span>MapleStory Classic World를 위한 작은 도우미</span></footer>
-        </> : page === 'settings' ? <SettingsPage snapshot={snapshot} onSnapshot={setSnapshot} notify={setMessage} update={update} /> : <GlossaryPage enabled={settings.glossaryEnabled} onToggle={value => void update({ glossaryEnabled: value })} notify={setMessage} />}
+        </> : page === 'settings' ? <SettingsPage snapshot={snapshot} onSnapshot={setSnapshot} notify={setMessage} update={update} changeProvider={changeProvider} providerPending={providerPending} onBusyChange={setProfileBusy} /> : <GlossaryPage enabled={settings.glossaryEnabled} onToggle={value => void update({ glossaryEnabled: value })} notify={setMessage} />}
       </main>
     </div>
     {message && <div className="toast" role="alert"><CircleHelp size={18} /><span>{message}</span><button className="icon-button" aria-label="알림 닫기" onClick={() => setMessage('')}><X size={16} /></button></div>}

@@ -18,7 +18,7 @@ async function collect(directory) {
 await mkdir(output, { recursive: true });
 const files = (await collect(root)).sort();
 await writeFile(resolve(output, 'changed-files.txt'), files.join('\n') + '\n', 'utf8');
-const archive = resolve(output, 'mscw-chatter-source-0.3.0.zip');
+const archive = resolve(output, 'mscw-chatter-source-0.4.0.zip');
 const zip = new yazl.ZipFile();
 for (const file of files) zip.addFile(resolve(root, file), file);
 zip.addFile(resolve(output, 'changed-files.txt'), 'changed-files.txt');

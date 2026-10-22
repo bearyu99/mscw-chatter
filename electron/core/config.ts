@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { DEFAULT_SETTINGS } from '../../src/shared/defaults';
 import type { ProfileInput, ProviderId, Settings, SettingsPatch } from '../../src/shared/types';
 import { isProvider, validateProfile } from './providers';
+import { validateShortcut, validateShortcutPair } from '../../src/shared/shortcuts';
 
 interface StoredConfig { version: 1; settings: Settings; encryptedKeys: Partial<Record<ProviderId, string>> }
 export interface CryptoPort { available(): boolean; encrypt(text: string): string; decrypt(text: string): string }
@@ -19,6 +20,7 @@ export class ConfigStore {
       const settings = structuredClone(DEFAULT_SETTINGS);
       const checked = validateSettingsPatch(raw.settings);
       Object.assign(settings, checked);
+      validateShortcutPair(settings, process.platform);
       for (const provider of ['openai', 'anthropic', 'google', 'local'] as const) {
         const value = raw.settings.profiles?.[provider];
         if (value) settings.profiles[provider] = validateProfile({ ...value, provider });
@@ -45,7 +47,7 @@ export class ConfigStore {
   }
   async updateSettings(patch: SettingsPatch) {
     const valid = validateSettingsPatch(patch);
-    return this.mutate(next => { Object.assign(next.settings, valid); });
+    return this.mutate(next => { Object.assign(next.settings, valid); validateShortcutPair(next.settings, process.platform); });
   }
   async saveProfile(input: ProfileInput) {
     const profile = validateProfile(input);
@@ -78,6 +80,7 @@ export function validateSettingsPatch(value: unknown): SettingsPatch {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('설정 형식이 올바르지 않아요.');
   const raw = value as Record<string, unknown>;
   const valid: SettingsPatch = {};
+  for (const key of ['monitorShortcut', 'translateShortcut'] as const) if (key in raw) valid[key] = validateShortcut(raw[key]);
   if ('provider' in raw) { if (!isProvider(raw.provider)) throw new Error('제공자를 확인해 주세요.'); valid.provider = raw.provider; }
   if ('direction' in raw) { if (!['auto', 'ko-en', 'en-ko'].includes(String(raw.direction))) throw new Error('번역 방향을 확인해 주세요.'); valid.direction = raw.direction as Settings['direction']; }
   for (const key of ['glossaryEnabled', 'autoCopy', 'alwaysOnTop', 'closeToTray', 'miniMode'] as const) {

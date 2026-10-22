@@ -7,6 +7,14 @@ import { buildPrompt } from '../electron/core/prompt';
 import type { ProviderId } from '../src/shared/types';
 
 describe('language and glossary contracts', () => {
+  it('uses the requested default models with translation-appropriate request options', () => {
+    expect(DEFAULT_SETTINGS.profiles.openai.model).toBe('gpt-6-luna');
+    expect(DEFAULT_SETTINGS.profiles.anthropic.model).toBe('claude-haiku-5-5');
+    expect(DEFAULT_SETTINGS.profiles.google.model).toBe('gemini-3.5-flash-lite');
+    expect(buildRequest('openai', DEFAULT_SETTINGS.profiles.openai, 'fixture', 's', 'u').body).toMatchObject({ model: 'gpt-6-luna', reasoning_effort: 'none', service_tier: 'default', max_completion_tokens: 2048 });
+    expect(buildRequest('anthropic', DEFAULT_SETTINGS.profiles.anthropic, 'fixture', 's', 'u').body).toMatchObject({ model: 'claude-haiku-5-5', output_config: { effort: 'low' }, thinking: { type: 'disabled' } });
+    expect(buildRequest('google', DEFAULT_SETTINGS.profiles.google, 'fixture', 's', 'u').url).toContain('/gemini-3.5-flash-lite:generateContent');
+  });
   it.each([['안녕', 'ko-en'], ['ㅎㅇ', 'ko-en'], ['hello', 'en-ko'], ['LFM 커파 healer', 'ko-en']] as const)('detects %s', (text, expected) => expect(resolveDirection(text, 'auto')).toBe(expected));
   it('honors an explicitly selected direction for mixed text', () => expect(resolveDirection('hello 안녕', 'en-ko')).toBe('en-ko'));
   it('rejects unsupported language, empty input and overlong chat', () => { expect(() => resolveDirection('1234', 'auto')).toThrow(); expect(() => validateText('  ')).toThrow(); expect(() => validateText('a'.repeat(2001))).toThrow(); });

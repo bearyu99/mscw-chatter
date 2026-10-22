@@ -1,5 +1,6 @@
 import { Check, Copy, CornerDownLeft, LoaderCircle, Maximize2, TriangleAlert, X } from 'lucide-react';
 import { useId, type Ref, type ClipboardEventHandler } from 'react';
+import { formatShortcut, matchesShortcut } from '../shared/shortcuts';
 import { MAX_INPUT_LENGTH } from '../shared/defaults';
 import type { TranslationEntry } from '../shared/types';
 import './MiniTranslator.css';
@@ -23,6 +24,8 @@ export interface MiniTranslatorProps {
   copyPending?: boolean;
   autoCopy: boolean;
   modifier: string;
+  translateShortcut?: string;
+  platform?: string;
   onTranslate(): void;
   onCancel(): void;
   onCopy(): void;
@@ -45,10 +48,10 @@ export default function MiniTranslator(props: MiniTranslatorProps) {
     </header>
 
     <section className="mini-field mini-source">
-      <div className="mini-field-heading"><label htmlFor={inputId}>원문</label><span className="mini-shortcut">{modifier} ↵ 번역</span></div>
+      <div className="mini-field-heading"><label htmlFor={inputId}>원문</label><span className="mini-shortcut">{formatShortcut(props.translateShortcut ?? 'CommandOrControl+Enter', props.platform ?? (modifier === '⌘' ? 'darwin' : 'win32'))} 번역</span></div>
       <textarea ref={inputRef} id={inputId} value={text} onChange={event => onTextChange(event.target.value)} onPaste={props.onPaste} maxLength={MAX_INPUT_LENGTH} placeholder="번역할 문장을 입력하거나 붙여넣으세요." readOnly={busy} aria-describedby={hintId} onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
-        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); onTranslate(); }
+        if (matchesShortcut(event.nativeEvent, props.translateShortcut ?? 'CommandOrControl+Enter', props.platform ?? (modifier === '⌘' ? 'darwin' : 'win32'))) { event.preventDefault(); onTranslate(); }
         if (busy && event.key === 'Escape') { event.preventDefault(); onCancel(); }
       }} />
       <div className="mini-field-footer"><span id={hintId} className="mini-hint">{text.length.toLocaleString()} / {MAX_INPUT_LENGTH.toLocaleString()}</span>

@@ -96,9 +96,9 @@ describe('clipboard translation state machine', () => {
   it('takes a stable settings snapshot for each request', async () => {
     const f = fixture(); const promise = f.controller.submit('hello'); await flush();
     f.settings.profiles.openai.model = 'changed-model'; f.settings.glossaryEnabled = false;
-    expect(f.requests[0].input.profile.model).toBe('gpt-4.1-mini'); expect(f.requests[0].input.glossaryEnabled).toBe(true);
+    expect(f.requests[0].input.profile.model).toBe(DEFAULT_SETTINGS.profiles.openai.model); expect(f.requests[0].input.glossaryEnabled).toBe(true);
     f.requests[0].pending.resolve({ text: '안녕', terms: [] }); await promise;
-    expect(f.controller.state.history[0].model).toBe('gpt-4.1-mini');
+    expect(f.controller.state.history[0].model).toBe(DEFAULT_SETTINGS.profiles.openai.model);
   });
   it('retains only the most recent 50 entries and clears on request', async () => {
     const f = fixture(); f.settings.autoCopy = false;
